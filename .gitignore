@@ -1,0 +1,31 @@
+# Cartelle generate da Keil
+Objects/
+Listings/
+
+# File compilati/generati
+*.axf
+*.hex
+*.bin
+*.elf
+*.map
+*.lst
+*.o
+*.d
+*.crf
+*.htm
+*.lnp
+
+# File utente/sessione Keil
+*.uvguix.*
+*.uvgui.*
+*.uvoptx
+
+# File temporanei
+*.bak
+*.orig
+*.tmp
+~*
+
+# Windows
+Thumbs.db
+desktop.ini

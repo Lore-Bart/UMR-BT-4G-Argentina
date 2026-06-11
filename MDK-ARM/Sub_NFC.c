@@ -1,0 +1,251 @@
+#include "main.h"
+#include "stm32f4xx_hal.h"
+#include "prototipi.h"
+#include "string.h"
+
+#define delayNFC 0x1ffff
+
+//periferiche
+extern I2C_HandleTypeDef hi2c1;
+extern I2C_HandleTypeDef hi2c3;
+extern I2C_HandleTypeDef hi2c2;
+extern RTC_HandleTypeDef hrtc;
+extern RTC_TimeTypeDef sTime;
+extern RTC_DateTypeDef sDate;
+extern SPI_HandleTypeDef hspi4;
+extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart1;
+extern DMA_HandleTypeDef hdma_usart2_rx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
+extern TIM_HandleTypeDef htim3;
+
+//NFC
+extern int sizeNFC;
+extern u8 arrayNFC[16];
+extern u8 offsetNFC[2];
+
+extern u8 avviaTestMemorie;
+
+extern u8 risultatoTestMemorie[4];
+
+//NFC after
+extern int sizeNFCafter;
+extern u8 arrayNFCafter[16];
+extern u8 offsetNFCafter[2];
+
+
+
+
+
+void writeNFC(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	copiaArray(&arrayNFC[0],&inBuf[0],size);
+	copiaArray(&offsetNFC[0],&offset[0],2);
+	sizeNFC = size;
+
+}
+
+void writeNFCafter(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	copiaArray(&arrayNFCafter[0],&inBuf[0],size);
+	copiaArray(&offsetNFCafter[0],&offset[0],2);
+	sizeNFCafter = size;
+
+}
+
+//scrittura su TAG NFC
+void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	u32 time = delayNFC;
+	u8 uart[16];
+	int tempo;
+	uint8_t kill = 0x52;	
+	u8 backupOff[2];
+	int a = 0;
+	u8 backupIn[20];
+	
+	tempo = HAL_GetTick();
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
+	delay(10);
+	
+	backupIn[0] = inBuf[0]; backupIn[1] = inBuf[1]; backupIn[2] = inBuf[2]; backupIn[3] = inBuf[3]; backupIn[4] = inBuf[4]; backupIn[5] = inBuf[5];  backupIn[6] = inBuf[6]; backupIn[7] = inBuf[7];
+	backupIn[8] = inBuf[8]; backupIn[9] = inBuf[9]; backupIn[10] = inBuf[10]; backupIn[11] = inBuf[11]; backupIn[12] = inBuf[12];  backupIn[13] = inBuf[13]; backupIn[14] = inBuf[14]; backupIn[15] = inBuf[15];
+
+	backupOff[0] = offset[0]; backupOff[1] = offset[1];
+	
+	
+	
+	initNFC5();
+	writeNFC16(&inBuf[0],size,&offset[0]);
+		
+	
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_SET);
+	
+	while(a < size){
+		inBuf[a] = backupIn[a];
+		a++;
+	}
+	offset[0] = backupOff[0]; offset[1] = backupOff[1];
+	
+}
+
+void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	uint8_t wrArray[24];
+	u32 time = delayNFC;
+	u8 outBuf[5] = {0,0,0,0,0};
+	u8 uart[100];
+	uint8_t kill = 0x52;
+	
+		
+	wrArray[0] = 2; wrArray[1] = 0; wrArray[2] = 0xd6; 
+	wrArray[3] = offset[0]; wrArray[4] = offset[1]; wrArray[5] = size;
+	copiaArray(&wrArray[6], &inBuf[0], size);
+	
+	M24SR_ComputeCrc(&wrArray[0],size+6);
+
+		
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&wrArray[0],size+8,10);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,10);
+	
+	
+}
+
+//lettura da NFC
+void readNFC(uint8_t *outBuf, uint8_t size, uint8_t *offset){
+	uint8_t reArray[size+5];
+	uint32_t ciao = 0x4fff;
+	uint8_t command[8] = {0x02,0,0xb0,0,0,12,0,0};
+
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
+	delay(10);
+	
+	initNFC5();
+		
+	command[3] = offset[0];
+	command[4] = offset[1];
+	command[5] = size;
+	M24SR_ComputeCrc(&command[0],6);
+		
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&command[0],8,1000);
+	while(ciao != 0){ciao--;}	ciao = 0x4fff;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&reArray[0],size+5,1000);
+	while(ciao != 0){ciao--;}	ciao = 0x4fff;
+	
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_SET);
+	
+	copiaArray(&outBuf[0],&reArray[1],size);
+	
+}
+
+
+//inizializza NFC
+void initNFC(){
+	uint8_t command[16] = {0x02,0,0xa4,0x04,0,0x07,0xd2,0x76,0,0,0x85,1,1,0,0x35,0xc0};
+	uint8_t outBuf[5] = {0,0,0,0,0};
+	uint8_t command4[10] = {0x02,0,0xa4,0,0x0c,0x02,0,1,0,0};
+	u8 result = 0;
+	u8 uart[100];
+	
+	uint8_t scrittura1[10] = {0x02,0,0xd6,0,0,0x02,0x1f,0xef,0,0};
+	uint8_t scrittura3[18] = {0x02,0,0xd6,0,0x02,0x0a,0xc1,1,0,0,0x1f,0xe8,0x54,0x02,0x65,0x6e,0,0};
+	uint8_t scrittura4[12] = {0x02,0,0xd6,0,0x0c,4,0,0,0,0,0,0};
+	u32 time = delayNFC;
+	
+	uint8_t kill = 0x52;
+	uint32_t ciao = 0xfff;
+	u8 *outBuf1;
+	
+	M24SR_ComputeCrc(&command[0],14);
+	
+		
+	M24SR_ComputeCrc(&command4[0],8);
+	
+	M24SR_ComputeCrc(&scrittura1[0],8);
+	
+	M24SR_ComputeCrc(&scrittura3[0],16);
+	
+	M24SR_ComputeCrc(&scrittura4[0],10);
+	
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
+	delay(100);
+	
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Transmit(&hi2c1,0xac,&kill,1,50);
+	while(time != 0){time--;}	time = delayNFC;
+	
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&command[0],16,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+	
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&command4[0],10,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&scrittura1[0],10,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&scrittura3[0],18,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf1[0],5,100);
+	
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&scrittura4[0],12,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+	
+}
+
+void initNFC5(){
+	uint8_t command[16] = {0x02,0,0xa4,0x04,0,0x07,0xd2,0x76,0,0,0x85,1,1,0,0x35,0xc0};
+	uint8_t outBuf[5] = {0,0,0,0,0};
+	uint8_t command4[10] = {0x02,0,0xa4,0,0x0c,0x02,0,1,0,0};
+	u8 result = 0;
+	u8 uart[100];
+	
+	uint8_t scrittura1[10] = {0x02,0,0xd6,0,0,0x02,0x1f,0xef,0,0};
+	uint8_t scrittura3[18] = {0x02,0,0xd6,0,0x02,0x0a,0xc1,1,0,0,0x1f,0xe8,0x54,0x02,0x65,0x6e,0,0};
+	uint8_t scrittura4[12] = {0x02,0,0xd6,0,0x0c,4,0,0,0,0,0,0};
+	u32 time = 0xfff;
+	
+	uint8_t kill = 0x52;
+	uint32_t ciao = 0xfff;
+	u8 *outBuf1;
+	
+	M24SR_ComputeCrc(&command[0],14);
+	
+		
+	M24SR_ComputeCrc(&command4[0],8);
+	
+	
+	
+	HAL_I2C_Master_Transmit(&hi2c1,0xac,&kill,1,50);
+	while(time != 0){time--;}	time = delayNFC;
+	
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&command[0],16,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+		
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&command4[0],10,100);
+	while(time != 0){time--;}	time = delayNFC;
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,100);
+	
+}
+
+void I2C_TransmitNFC(u8* inBuf, int size){
+	__disable_irq();
+	HAL_I2C_Master_Transmit(&hi2c1,0xac,&inBuf[0],size,100);
+	__enable_irq();
+}
+
+void I2C_ReceiveNFC(u8* outBuf, int size){
+	__disable_irq();
+	HAL_I2C_Master_Receive(&hi2c1,0xac,&outBuf[0],size,100);
+	__enable_irq();
+}
+
+void killRF(void){
+	uint8_t kill = 0x52;
+	u32 time = 0x4ffff;
+	
+	while(time != 0){time--;}	time = 0x4fff;
+	HAL_I2C_Master_Transmit(&hi2c1,0xac,&kill,1,50);
+	while(time != 0){time--;}	time = 0x4fff;
+}
