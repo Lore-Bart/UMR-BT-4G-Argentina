@@ -2,6 +2,7 @@
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
 #include "string.h"
+#include "stdio.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -19,6 +20,33 @@ extern TIM_HandleTypeDef htim3;
 
 
 
+
+//lettura registro di stato flash
+u8 readFlashStatus(void){
+	u8 command = 0x05;
+	u8 status = 0xff;
+
+	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
+	HAL_SPI_Transmit(&hspi4,&command,1,1000);
+	HAL_SPI_Receive(&hspi4,&status,1,1000);
+	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
+
+	return status;
+}
+
+//attende fine operazione flash: ritorna 1 se la flash e' libera, 0 se timeout
+u8 waitFlashReady(u16 timeout10ms){
+	while(timeout10ms > 0){
+		resetWD();
+		if((readFlashStatus() & 0x01) == 0){
+			return 1;
+		}
+		HAL_Delay(10);
+		timeout10ms--;
+	}
+	return 0;
+}
+
 //formatta settore
 void FormatSector(uint8_t *address){
 	uint8_t command = 0x06;
@@ -34,6 +62,7 @@ void FormatSector(uint8_t *address){
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&array[0],4,1000);
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
+	waitFlashReady(200);
 }
 
 
@@ -68,9 +97,10 @@ void writeArrayFlash(uint8_t *InBuf, uint8_t *address, uint16_t size){
 //precursore salva array su flash
 void writeArrayFlashBefore(uint8_t *InBuf, uint8_t *address, uint16_t size){
 	
-	uint8_t save[200],messaggio[100];
+	uint8_t save[260],messaggio[100];
 	uint8_t command = 0x06;
 	
+	waitFlashReady(200);
 	
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&command,1,1000);
@@ -84,6 +114,7 @@ void writeArrayFlashBefore(uint8_t *InBuf, uint8_t *address, uint16_t size){
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&save[0],size+4,1000);
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
+	waitFlashReady(200);
 	
 }
 
@@ -97,6 +128,8 @@ void readArrayFlash(uint8_t *OutBuf,uint8_t *address, uint16_t size){
 	command[2] = 0;
 	command[3] = 0;
 	
+	waitFlashReady(200);
+	
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&command[0],1,1000);
 	HAL_SPI_Transmit(&hspi4,&address[0],3,1000);
@@ -105,24 +138,44 @@ void readArrayFlash(uint8_t *OutBuf,uint8_t *address, uint16_t size){
 }
 
 
-//formatta blocco
-void blockErase (int block){
-	uint8_t command = 0x06;
-	uint8_t array[4] = {0xd8,0,0,0};
-	
-			
+//formatta blocco e attende il termine dell'erase
+u8 blockEraseAndWait (int block){
+	u8 command = 0x06;
+	u8 array[4] = {0xd8,0,0,0};
+
+	if(block < 0 || block > 255){
+		return 0;
+	}
+
+	//se la flash e' gia' occupata, attendo prima di inviare un nuovo comando
+	if(waitFlashReady(1000) == 0){
+		return 0;
+	}
+
 	//write enable
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&command,1,1000);
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
 	
-	array[1] = block;
+	array[1] = (u8)block;
 	
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&array[0],4,1000);
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
-	
+
+	//sector erase puo' richiedere parecchio tempo: non invio altri comandi finche' WIP=1
+	if(waitFlashReady(1200) == 0){
+		return 0;
+	}
+
+	return 1;
 }
+
+//compatibilita' con il vecchio codice
+void blockErase (int block){
+	blockEraseAndWait(block);
+}
+
 
 
 
@@ -164,6 +217,7 @@ void formatFlash (void){
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&hspi4,&array[0],4,1000);
 	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_3,GPIO_PIN_SET);
+	waitFlashReady(6000);
 	
 }
 

@@ -2,6 +2,7 @@
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
 #include "string.h"
+#include "stdio.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -96,8 +97,24 @@ extern u8 aggiungiMeasProfileDBflag;
 extern u8 aggiungiLoadProfileDBflag;
 
 
+static u8 timestampProfiloValido(u32 timestamp){
+	if(timestamp == 0 || timestamp == 0xffffffff){
+		return 0;
+	}
+	/* Evita record cancellati/corrotti: 0xFFFFFFFF viene visto come 07/02/2106. */
+	if(timestamp < 946684800UL || timestamp > 4102444800UL){
+		return 0;
+	}
+	return 1;
+}
+
+
 void preparaLoad(void){
 	long difference = 0;
+
+	if(cancellaLoad != 0){
+		return;
+	}
 	
 	//genero la stringaLoad
 	u322array(&stringaLoad[0],myTimeVar); //data ora
@@ -409,6 +426,10 @@ void preparaMeasDB(void){
 
 void preparaMeas(void){
 
+	if(cancellaMeas != 0){
+		return;
+	}
+
 	//preparo le variabili meas
 	
 	if(I1[0] > 0){
@@ -659,6 +680,10 @@ void fram2flashMeas(uint16_t pagina, u8 riga){
 void salvataggio(void){
 	
 	u8 salvataggioNormale = 0;
+
+	if(cancellaLoad != 0 || cancellaMeas != 0){
+		return;
+	}
 	
 	//LOAD PROFILE	
 	switch(LoadActive){
@@ -850,7 +875,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contaload++;
 		}
 		
@@ -859,7 +884,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contaload++;
 		}
 		i++;
@@ -879,7 +904,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contaload++;
 		}
 		
@@ -888,7 +913,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contaload++;
 		}
 		i++;
@@ -915,7 +940,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFram[1] += 4;
 			ReadArrayFram(&array[4],&addressFram[0],100);
 			HAL_UART_Transmit(&huart2,&array[0],104,1000);
@@ -928,7 +953,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFram[1] += 4;
 			ReadArrayFram(&array[4],&addressFram[0],100);
 			HAL_UART_Transmit(&huart2,&array[0],104,1000);	
@@ -951,7 +976,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFlash[2] += 4;
 			readArrayFlash(&array[4],&addressFlash[0],100);
 			HAL_UART_Transmit(&huart2,&array[0],104,1000);
@@ -963,7 +988,7 @@ void filtroLoad(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFlash[2] += 4;
 			readArrayFlash(&array[4],&addressFlash[0],100);
 			HAL_UART_Transmit(&huart2,&array[0],104,1000);
@@ -1008,7 +1033,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		dato = array2u32(&array[0]);
 		
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contameas++;
 		}
 		
@@ -1017,7 +1042,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contameas++;
 		}
 		i++;
@@ -1038,7 +1063,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contameas++;
 		}
 		
@@ -1047,7 +1072,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			contameas++;
 		}
 		i++;
@@ -1071,7 +1096,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFram[1] += 4;
 			ReadArrayFram(&array[4],&addressFram[0],108);
 			HAL_UART_Transmit(&huart2,&array[0],112,1000);
@@ -1083,7 +1108,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		ReadArrayFram(&array[0],&addressFram[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFram[1] += 4;
 			ReadArrayFram(&array[4],&addressFram[0],108);
 			HAL_UART_Transmit(&huart2,&array[0],112,1000);		
@@ -1105,7 +1130,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFlash[2] += 4;
 			readArrayFlash(&array[4],&addressFlash[0],108);
 			HAL_UART_Transmit(&huart2,&array[0],112,1000);
@@ -1117,7 +1142,7 @@ void filtroMeas(u32 estremoA, u32 estremoB){
 		readArrayFlash(&array[0],&addressFlash[0],4);
 		dato = array2u32(&array[0]);
 		
-		if(dato >= estremoA && dato <= estremoB){
+		if(timestampProfiloValido(dato) && dato >= estremoA && dato <= estremoB){
 			addressFlash[2] += 4;
 			readArrayFlash(&array[4],&addressFlash[0],108);
 			HAL_UART_Transmit(&huart2,&array[0],112,1000);
@@ -1173,7 +1198,7 @@ void sommaEnergie(u8 *outBuf, u32 min, u32 max){
 		
 	
 		//prendo il minimo e il massimo salvati in flash
-		if(local >= min && local <= max){
+		if(timestampProfiloValido(local) && local >= min && local <= max){
 			if(minLocal == 0){ //primo valore che viene trovato nel range
 				minLocal = local;
 				maxLocal = local;
@@ -1210,7 +1235,7 @@ void sommaEnergie(u8 *outBuf, u32 min, u32 max){
 		local = array2u32(&data[0]);
 		
 		//prendo il minimo e il massimo salvati in fram
-		if(local >= min && local <= max){
+		if(timestampProfiloValido(local) && local >= min && local <= max){
 			if(minLocal == 0){ //primo valore che viene trovato nel range
 				minLocal = local;
 				maxLocal = local;
@@ -1295,7 +1320,7 @@ void mediaMisurandi(u8 *outBuf,u32 min,u32 max){
 		readArrayFlash(&data[0],&addressFlash[0],4);	
 		local = array2u32(&data[0]);
 
-		if(local >= min && local <= max){
+		if(timestampProfiloValido(local) && local >= min && local <= max){
 			contatore++;
 			maxLocal = local;
 			addressFlash[2] += 4;
@@ -1390,7 +1415,7 @@ void mediaMisurandi(u8 *outBuf,u32 min,u32 max){
 		ReadArrayFram(&data[0],&addressFram[0],4);
 		local = array2u32(&data[0]);
 		
-		if(local >= min && local <= max){
+		if(timestampProfiloValido(local) && local >= min && local <= max){
 			contatore++;
 			maxLocal = local;
 			addressFram[1] += 4;
@@ -1554,16 +1579,121 @@ void mediaMisurandi(u8 *outBuf,u32 min,u32 max){
 
 
 
+
+u16 contaLoadProfilesFramResidui(void){
+	u16 i = 0;
+	u16 residui = 0;
+	u8 addressFram[2] = {0,0};
+	u8 data[4];
+	u32 timestamp;
+
+	while(i < 16){
+		resetWD();
+		addressFram[0] = i + 32;
+		addressFram[1] = 0;
+		ReadArrayFram(&data[0],&addressFram[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+
+		addressFram[1] = 128;
+		ReadArrayFram(&data[0],&addressFram[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+		i++;
+	}
+
+	return residui;
+}
+
+u16 contaMeasProfilesFramResidui(void){
+	u16 i = 0;
+	u16 residui = 0;
+	u8 addressFram[2] = {0,0};
+	u8 data[4];
+	u32 timestamp;
+
+	while(i < 16){
+		resetWD();
+		addressFram[0] = i + 48;
+		addressFram[1] = 0;
+		ReadArrayFram(&data[0],&addressFram[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+
+		addressFram[1] = 128;
+		ReadArrayFram(&data[0],&addressFram[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+		i++;
+	}
+
+	return residui;
+}
+
+u16 contaLoadProfilesResidui(void){
+	u16 i = 0;
+	u16 residui = 0;
+	u8 addressFlash[3] = {0,0,0};
+	u8 data[4];
+	u32 timestamp;
+
+	while(i < 8192){
+		resetWD();
+		u162array(&addressFlash[0],i);
+		addressFlash[2] = 0;
+		readArrayFlash(&data[0],&addressFlash[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+
+		addressFlash[2] = 128;
+		readArrayFlash(&data[0],&addressFlash[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+		i++;
+	}
+
+	residui += contaLoadProfilesFramResidui();
+	return residui;
+}
+
+u16 contaMeasProfilesResidui(void){
+	u16 i = 0;
+	u16 pagina;
+	u16 residui = 0;
+	u8 addressFlash[3] = {0,0,0};
+	u8 data[4];
+	u32 timestamp;
+
+	while(i < 8192){
+		resetWD();
+		pagina = i + 8192;
+		u162array(&addressFlash[0],pagina);
+		addressFlash[2] = 0;
+		readArrayFlash(&data[0],&addressFlash[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+
+		addressFlash[2] = 128;
+		readArrayFlash(&data[0],&addressFlash[0],4);
+		timestamp = array2u32(&data[0]);
+		if(timestampProfiloValido(timestamp)){ residui++; }
+		i++;
+	}
+
+	residui += contaMeasProfilesFramResidui();
+	return residui;
+}
+
 //formatta load profile
 void formattaLoad(void){
 	u8 addressFram[2];
 	int i = 0;
 	u8 formattatore[256];
-	u8 messaggio[28] = "cancellazione load profiles\n";
+	u8 messaggio[100] = "erase load profiles requested\n";
 
 	
 	
-	HAL_UART_Transmit(&huart1,&messaggio[0],28,1000);
+	HAL_UART_Transmit(&huart1,&messaggio[0],strlen(messaggio),1000);
 	
 	inibizione = 100;
 	while(i<256){ //genero array per formattare FRAM
@@ -1587,7 +1717,13 @@ void formattaLoad(void){
 	
 	saveU32fram(indiceLoad,&addressFram[0]); //salvo indiceload
 	
-	cancellaLoad = 31;
+	paginaLoadSost = 255;
+	salvataggioLoad = 0;
+	aggiungiLoadProfileDBflag = 0;
+	cancellaLoad = 32;
+	sprintf((char*)messaggio,"erase load profiles FRAM residual: %u\n",contaLoadProfilesFramResidui());
+	inviaDebug(&messaggio[0]);
+	inviaDebug((u8*)"erase load profiles FLASH queued: 32 sectors\n");
 	
 	inibizione = 0;
 	
@@ -1598,11 +1734,11 @@ void formattaMeas(void){
 	u8 addressFram[2];
 	int i = 0;
 	u8 formattatore[256];
-	u8 messaggio[28] = "cancellazione meas profiles\n";
+	u8 messaggio[100] = "erase measurand profiles requested\n";
 
 	
 	
-	HAL_UART_Transmit(&huart1,&messaggio[0],28,1000);
+	HAL_UART_Transmit(&huart1,&messaggio[0],strlen(messaggio),1000);
 	
 	inibizione = 100;
 	while(i<256){ //genero array per formattare FRAM
@@ -1626,7 +1762,13 @@ void formattaMeas(void){
 	
 	saveU32fram(indiceMeas,&addressFram[0]); //salvo indiceMeas
 	
-	cancellaMeas = 31;
+	paginaMeasSost = 255;
+	salvataggioMeas = 0;
+	aggiungiMeasProfileDBflag = 0;
+	cancellaMeas = 32;
+	sprintf((char*)messaggio,"erase meas profiles FRAM residual: %u\n",contaMeasProfilesFramResidui());
+	inviaDebug(&messaggio[0]);
+	inviaDebug((u8*)"erase measurand profiles FLASH queued: 32 sectors\n");
 	
 	inibizione = 0;
 	

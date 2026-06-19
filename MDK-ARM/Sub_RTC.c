@@ -535,6 +535,12 @@ void RTCpolling(void){
 		static u8 nfcNeutroEraseRetry = 0;
 		static u8 nfcGuastiEraseSkipped = 0;
 		static u8 nfcNeutroEraseSkipped = 0;
+		static u8 flashLoadEraseRetry = 0;
+		static u8 flashMeasEraseRetry = 0;
+		static u8 flashLoadEraseSkipped = 0;
+		static u8 flashMeasEraseSkipped = 0;
+		u8 flashBlock = 0;
+		u16 profiliResidui = 0;
 		
 		if(currentTime.Seconds == 0 && produzione == 0){
 		sprintf(uart,"minuto: %d\n",currentTime.Minutes);
@@ -620,30 +626,83 @@ void RTCpolling(void){
 	
 
 	
-		//cancellazione flash
-		if((cancellaLoad + cancellaMeas) <= 31 && (cancellaLoad + cancellaMeas) > 0){
-			if(cancellaLoad > 0){
+		//cancellazione flash load/meas profiles
+		/*
+		 * Ogni area profili occupa 32 settori flash da 64 kB:
+		 * - load profile:      blocchi 0..31
+		 * - measurand profile: blocchi 32..63
+		 * Il vecchio codice cancellava 31 blocchi e mancava l'ultimo settore.
+		 * Inoltre non attendeva il bit WIP della flash, quindi alcuni erase potevano
+		 * essere ignorati se inviati mentre la memoria era ancora occupata.
+		 */
+		if(cancellaLoad > 0){
+			flashBlock = (u8)(32 - cancellaLoad); //0..31, dal primo settore letto dall'app verso l'alto
+			sprintf(uart,"erase load profiles FLASH sector %u started\n",flashBlock);
+			inviaDebug(uart);
+			if(blockEraseAndWait(flashBlock) != 0){
 				cancellaLoad--;
-				blockErase(cancellaLoad);
+				flashLoadEraseRetry = 0;
 				inibizione = 2;
-				if(cancellaLoad == 0){
-					inviaDebug((u8*)"erase load profiles completed\n");
+			}
+			else{
+				flashLoadEraseRetry++;
+				sprintf(uart,"erase load profiles FLASH retry %u sector %u\n",flashLoadEraseRetry,flashBlock);
+				inviaDebug(uart);
+				if(flashLoadEraseRetry >= 3){
+					sprintf(uart,"erase load profiles FLASH sector skipped %u\n",flashBlock);
+					inviaDebug(uart);
+					flashLoadEraseRetry = 0;
+					flashLoadEraseSkipped = 1;
+					cancellaLoad--;
 				}
 			}
-			if(cancellaMeas > 0){
-				cancellaMeas--;
-				blockErase(cancellaMeas+32);
-				inibizione = 2;
-				if(cancellaMeas == 0){
-					inviaDebug((u8*)"erase measurand profiles completed\n");
+			if(cancellaLoad == 0){
+				profiliResidui = contaLoadProfilesResidui();
+				if(flashLoadEraseSkipped == 0 && profiliResidui == 0){
+					inviaDebug((u8*)"erase load profiles completed and verified: residual valid records 0\n");
 				}
-			}			
+				else{
+					sprintf(uart,"erase load profiles completed with residual valid records: %u\n",profiliResidui);
+					inviaDebug(uart);
+				}
+				flashLoadEraseSkipped = 0;
+				flashLoadEraseRetry = 0;
+			}
 		}
-		else if((cancellaLoad + cancellaMeas) > 31){
-			formatFlash();
-			inibizione = 35;
-			cancellaLoad = 0;
-			cancellaMeas = 0;
+
+		if(cancellaMeas > 0){
+			flashBlock = (u8)(32 + (32 - cancellaMeas)); //32..63, dal primo settore letto dall'app verso l'alto
+			sprintf(uart,"erase measurand profiles FLASH sector %u started\n",flashBlock);
+			inviaDebug(uart);
+			if(blockEraseAndWait(flashBlock) != 0){
+				cancellaMeas--;
+				flashMeasEraseRetry = 0;
+				inibizione = 2;
+			}
+			else{
+				flashMeasEraseRetry++;
+				sprintf(uart,"erase measurand profiles FLASH retry %u sector %u\n",flashMeasEraseRetry,flashBlock);
+				inviaDebug(uart);
+				if(flashMeasEraseRetry >= 3){
+					sprintf(uart,"erase measurand profiles FLASH sector skipped %u\n",flashBlock);
+					inviaDebug(uart);
+					flashMeasEraseRetry = 0;
+					flashMeasEraseSkipped = 1;
+					cancellaMeas--;
+				}
+			}
+			if(cancellaMeas == 0){
+				profiliResidui = contaMeasProfilesResidui();
+				if(flashMeasEraseSkipped == 0 && profiliResidui == 0){
+					inviaDebug((u8*)"erase measurand profiles completed and verified: residual valid records 0\n");
+				}
+				else{
+					sprintf(uart,"erase measurand profiles completed with residual valid records: %u\n",profiliResidui);
+					inviaDebug(uart);
+				}
+				flashMeasEraseSkipped = 0;
+				flashMeasEraseRetry = 0;
+			}
 		}
 		/*
 		 * Gestione NFC.
