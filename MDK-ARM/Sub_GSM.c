@@ -2,6 +2,8 @@
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
 #include "string.h"
+#include "stdio.h"
+#include "stdlib.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -121,6 +123,9 @@ extern u32 Ipot;
 
 //attivazione SMS
 u8 smsAttivi = 0;
+u8 smsTextModeReady = 0;
+static u8 smsTxBusy = 0;
+static int lastReadSmsIndex = 0;
 u8 debugDB = 0; //salvataggio batteria su 
 
 
@@ -175,6 +180,128 @@ u8 NTPattivo = 0;
 u8 addressNTP[50];
 
 
+
+static int smsIsDigit(char c)
+{
+    return (c >= '0' && c <= '9');
+}
+
+static int smsIsHexChar(char c)
+{
+    if(c >= '0' && c <= '9') return 1;
+    if(c >= 'A' && c <= 'F') return 1;
+    if(c >= 'a' && c <= 'f') return 1;
+    return 0;
+}
+
+static int smsIsHexMessage(u8 *m)
+{
+    int i = 0;
+    int len = 0;
+
+    if(m == 0) return 0;
+
+    while(m[i] == ' ' || m[i] == '\r' || m[i] == '\n' || m[i] == '\t') i++;
+
+    while(m[i] != 0){
+        if(m[i] == '\r' || m[i] == '\n' || m[i] == ' ' || m[i] == '\t'){
+            break;
+        }
+        if(smsIsHexChar(m[i]) == 0){
+            return 0;
+        }
+        len++;
+        i++;
+    }
+
+    if(len < 2) return 0;
+    if((len & 1) != 0) return 0;
+    return 1;
+}
+
+static void smsSafeCopy(u8 *dst, const u8 *src, int maxLen)
+{
+    int i = 0;
+
+    if(dst == 0 || maxLen <= 0) return;
+    if(src == 0){
+        dst[0] = 0;
+        return;
+    }
+
+    while(i < (maxLen - 1) && src[i] != 0){
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = 0;
+}
+
+static int smsParseCmtiIndex(u8 *messaggio)
+{
+    char *p;
+    int index = 0;
+
+    if(messaggio == 0) return 0;
+
+    p = strstr((char*)messaggio, "CMTI");
+    if(p == 0) return 0;
+
+    p = strchr(p, ',');
+    if(p == 0) return 0;
+    p++;
+
+    while(*p == ' ' || *p == '\"') p++;
+
+    while(smsIsDigit(*p)){
+        index = (index * 10) + (*p - '0');
+        p++;
+    }
+
+    return index;
+}
+
+static int smsParseTwoDigits(const char *p)
+{
+    if(p == 0) return 0;
+    if(!smsIsDigit(p[0]) || !smsIsDigit(p[1])) return 0;
+    return (p[0] - '0') * 10 + (p[1] - '0');
+}
+
+void initSMStextMode(void)
+{
+    /*
+     * Forza il SIM7600 in modalita' SMS testo. Questo evita che AT+CMGR
+     * restituisca PDU esadecimali, che non sono interpretabili dai comandi
+     * SMS in chiaro e non vanno confusi con i comandi codificati dell'app.
+     */
+    if(statoModulo != 0){
+        return;
+    }
+
+    if(updateGSMatt != 0){
+        return;
+    }
+
+    statoModulo++;
+    inviaDebug("init SMS text mode\n");
+
+    HAL_UART_Transmit(&huart6,(u8*)"AT+CMGF=1\r",strlen("AT+CMGF=1\r"),1000);
+    HAL_Delay(150);
+    HAL_UART_Transmit(&huart6,(u8*)"AT+CSCS=\"GSM\"\r",strlen("AT+CSCS=\"GSM\"\r"),1000);
+    HAL_Delay(150);
+    HAL_UART_Transmit(&huart6,(u8*)"AT+CNMI=2,1,0,0,0\r",strlen("AT+CNMI=2,1,0,0,0\r"),1000);
+    HAL_Delay(150);
+    HAL_UART_Transmit(&huart6,(u8*)"AT+CPMS=\"SM\",\"SM\",\"SM\"\r",strlen("AT+CPMS=\"SM\",\"SM\",\"SM\"\r"),1000);
+    HAL_Delay(150);
+
+    smsTextModeReady = 1;
+
+    if(statoModulo > 0){
+        statoModulo--;
+        inviaDebug("statoModulo--\n");
+    }
+}
+
 void risposteGSM(uint8_t *messaggio){
 	uint8_t signal[3] = "CSQ"; //SEGNALE
 	u8 interpretaMessaggio = 0;
@@ -185,45 +312,77 @@ void risposteGSM(uint8_t *messaggio){
 	
 	
 	
-	uint8_t uart[300],uartConv[300],size;
+	uint8_t uart[300],uartConv[300];
+	int size;
 	int i = 7;
 	
 	riavvioForzato = timeoutModulo;
 	
 	if(cercaStringa(&messaggio[0],(u8*)"CMTI",4,&pointer) == 1){//lettura SMS
-		copiaArray(&indicationSMSarrivato[0],&messaggio[0],strlen(messaggio));
+		/* Salvo la notifica completa e poi il main leggera' l'indice in modo robusto. */
+		smsSafeCopy(&indicationSMSarrivato[0], &messaggio[0], sizeof(indicationSMSarrivato));
 		indicationSMSflag = 1;
 	}
 	else if(cercaStringa(&messaggio[0],(u8*)"CMGR:",5,&pointer) == 1){//pulizia SMS
-		size = pulisciSMS(&messaggio[3],&uart[0]);
-		interpretaMessaggio = 1;		
+		size = pulisciSMS(&messaggio[0],&uart[0]);
+		if(size > 0){
+			interpretaMessaggio = 1;
+		}
+		else{
+			interpretaMessaggio = 0;
+		}
 	}
-	else if(cercaStringa(&messaggio[0],(u8*)"CSQ:",4,&pointer) == 1){//pulizia SMS
-		//inviaDebug("CIAO");
-		//inviaDebug(&messaggio[15]);
-		refreshSignal(&messaggio[15]);
+	else if(cercaStringa(&messaggio[0],(u8*)"CSQ:",4,&pointer) == 1){//risposta livello segnale
+		/*
+		 * La risposta AT+CSQ puo' arrivare con echo, CR/LF o spezzata in modo
+		 * diverso dal previsto. Non usiamo piu' un offset fisso come &messaggio[15].
+		 */
+		refreshSignal(&messaggio[0]);
+		if(statoModulo > 0){
+			statoModulo--; inviaDebug("statoModulo--\n");
+		}
 	}
 	else if(cercaStringa(&messaggio[0],(u8*)"CMGS:",5,&pointer) == 1){
-		statoModulo--; inviaDebug("statoModulo--\n");
+		smsTxBusy = 0;
+		if(statoModulo > 0){
+			statoModulo--; inviaDebug("statoModulo--\n");
+		}
+	}
+	else if(cercaStringa(&messaggio[0],(u8*)"ERROR",5,&pointer) == 1){
+		/* Se un invio SMS fallisce, non lasciamo il modulo occupato per sempre. */
+		if(smsTxBusy != 0){
+			smsTxBusy = 0;
+			if(statoModulo > 0){
+				statoModulo--; inviaDebug("statoModulo--\n");
+			}
+		}
 	}
 	else if(cercaStringa(&messaggio[0],(u8*)"ATI",3,&pointer)){
 		statoModulo = 0;
 	}
-	else if(cercaStringa(&messaggio[0],(u8*)"\n+NETOPEN",9,&pointer)){
+	else if(cercaStringa(&messaggio[0],(u8*)"+NETOPEN:",9,&pointer)){
+		/*
+		 * Parsing robusto: prima veniva controllato messaggio[18], quindi bastava
+		 * un echo o un CR/LF diverso per interpretare male la risposta.
+		 */
+		if(statoModulo > 0){
 			statoModulo--; inviaDebug("statoModulo--\n");
-			HAL_UART_Transmit(&huart1,&messaggio[0],5,100);
-		if(messaggio[18] == 48){
+		}
+		if(strstr((char*)messaggio,"+NETOPEN: 0") != 0){
 			statoInternet = 3;
 			delay(200);
 			HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPINIT\r",12,100);
 			delay(200);
 		}
 		else{
-				statoInternet = 0;
-			}		
+			/* NETOPEN fallita: internet resta abilitato ma non connesso, cosi' il main ritenta. */
+			statoInternet = 1;
 		}
+	}
 		else if(cercaStringa(&messaggio[0],(u8*)"CNTP:",5,&pointer)){
-		statoModulo--; inviaDebug("statoModulo--\n");
+		if(statoModulo > 0){
+			statoModulo--; inviaDebug("statoModulo--\n");
+		}
 		if(messaggio[9] == '0'){
 			aggioraOrarioNTPflag = 1;
 		}
@@ -232,7 +391,9 @@ void risposteGSM(uint8_t *messaggio){
 		impostaOrarioNTP(&messaggio[pointer+7]);
 	}
 	else if(cercaStringa(&messaggio[0],(u8*)"HTTPACTION:",11,&pointer)){
-		statoModulo--; inviaDebug("statoModulo--\n");
+		if(statoModulo > 0){
+			statoModulo--; inviaDebug("statoModulo--\n");
+		}
 		if(updateGSMatt == 1){ //lettura pagina contenente il pacchetto
 			if(messaggio[pointer+19] == 0x0d){
 				numeroByte = messaggio[pointer+18]-48;
@@ -324,10 +485,21 @@ void risposteGSM(uint8_t *messaggio){
 		}
 			
 		else{
-			inviaDebug((u8*)"esecuzione comando\n");
-			string2byte(&uart[0],&uartConv[0],strlen(uart)-4);
-			//inviaDebug(uartConv);
-			eseguiComando4G(uartConv);
+			/*
+			 * Comandi codificati generati dall'app: il corpo SMS e' testo HEX.
+			 * Li convertiamo in byte solo se il messaggio e' effettivamente HEX;
+			 * questo evita di eseguire accidentalmente PDU o testi non riconosciuti.
+			 */
+			if(smsIsHexMessage(&uart[0]) != 0){
+				inviaDebug((u8*)"esecuzione comando codificato SMS\n");
+				for(i = 0; i < 300; i++) uartConv[i] = 0;
+				string2byte(&uart[0],&uartConv[0],strlen((char*)uart));
+				eseguiComando4G(uartConv);
+			}
+			else{
+				inviaDebug((u8*)"comando SMS non riconosciuto\n");
+				inviaSMS(&lastNumber[0],strlen((char*)lastNumber),(u8*)"COMMAND NOT VALID",17);
+			}
 		}
 	
 	}
@@ -1180,6 +1352,7 @@ void disattivaInternet(u8* messaggio){
 	
 	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
 		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+		return;
 	}
 	
 	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
@@ -1219,6 +1392,7 @@ void restartInternet(u8* messaggio){
 	
 	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
 		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+		return;
 	}
 	
 	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
@@ -1865,90 +2039,163 @@ void deleteSMS(void){
 
 //comando lettura SMS
 void leggiSMS(uint8_t *numeroSMS){
-	uint8_t command[11];
-	
-	inviaDebug((u8*)"lettura SMS\n");
-	sprintf((char *)command,"AT+CMGR=");
-	
-	if(numeroSMS[1] == 0x0d){
-		command[8] = numeroSMS[0];
-		command[9] = numeroSMS[1];
-		HAL_UART_Transmit(&huart6,&command[0],10,1000);
-	}
-	else{
-		command[8] = numeroSMS[0];
-		command[9] = numeroSMS[1];
-		command[10] = numeroSMS[2];
-		HAL_UART_Transmit(&huart6,&command[0],11,1000);	
-	}
+    uint8_t command[20];
+    int index;
+
+    inviaDebug((u8*)"lettura SMS\n");
+
+    index = smsParseCmtiIndex(numeroSMS);
+    if(index <= 0){
+        inviaDebug((u8*)"indice SMS non valido\n");
+        return;
+    }
+
+    lastReadSmsIndex = index;
+    sprintf((char *)command,"AT+CMGR=%d\r",index);
+    HAL_UART_Transmit(&huart6,&command[0],strlen((char*)command),1000);
 }
 
 int pulisciSMS(uint8_t *inBuf, uint8_t *outBuf){
-	int i = 0;
-	int a = 0;
-	int o = 0;
-	RTC_DateTypeDef DateSMS;
-	RTC_TimeTypeDef TimeSMS;
-	u8 uart[100];
-	
-	
-	while(inBuf[i] != 0x0a){
-		i++;
-	}
-	i++;
-	
-	TimeSMS.Seconds = (inBuf[i-7]-48)+(inBuf[i-8]-48)*10;
-	TimeSMS.Minutes = (inBuf[i-10]-48)+(inBuf[i-11]-48)*10;
-	TimeSMS.Hours = (inBuf[i-13]-48)+(inBuf[i-14]-48)*10;
-	DateSMS.Date = (inBuf[i-16]-48)+(inBuf[i-17]-48)*10;
-	DateSMS.Month = (inBuf[i-19]-48)+(inBuf[i-20]-48)*10;
-	DateSMS.Year = (inBuf[i-22]-48)+(inBuf[i-23]-48)*10;
-	
-	lastSMS = timetoposix(DateSMS,TimeSMS);
-	
-	o = 20;
-	
-	while(inBuf[o] != 34 && o < 35){
-		lastNumber[o-20] = inBuf[o];
-		o++;
-	}
-	lastNumber[o] = 0;
-	
-	a = strlen(inBuf)-i-6;
-	copiaArray(&outBuf[0],&inBuf[i],a);
-	
-	HAL_UART_Transmit(&huart6,(u8*)"AT+CMGD=,4\r",11,100); //cancella SMS
-	delay(100);
-	
-	return a;
+    char *p;
+    char *q[10];
+    char *body;
+    char *end;
+    int nq = 0;
+    int i;
+    int len;
+    int copyLen;
+    RTC_DateTypeDef DateSMS;
+    RTC_TimeTypeDef TimeSMS;
+    u8 command[20];
+
+    if(outBuf == 0) return 0;
+    outBuf[0] = 0;
+
+    if(inBuf == 0) return 0;
+
+    p = strstr((char*)inBuf,"+CMGR:");
+    if(p == 0) p = strstr((char*)inBuf,"CMGR:");
+    if(p == 0) return 0;
+
+    /*
+     * In text mode la riga +CMGR contiene campi tra virgolette.
+     * Se non li troviamo e' quasi certamente PDU mode: non interpretiamo nulla.
+     */
+    for(i = 0; p[i] != 0 && nq < 10; i++){
+        if(p[i] == '\"'){
+            q[nq++] = &p[i];
+        }
+        if(p[i] == '\n'){
+            break;
+        }
+    }
+
+    if(nq < 4){
+        inviaDebug((u8*)"SMS non in text mode: reinit CMGF\n");
+        smsTextModeReady = 0;
+        initSMStextMode();
+        return 0;
+    }
+
+    /* Secondo campo tra virgolette = numero mittente. */
+    len = (int)(q[3] - q[2] - 1);
+    if(len < 0) len = 0;
+    if(len > 19) len = 19;
+    for(i = 0; i < len; i++){
+        lastNumber[i] = (u8)q[2][i + 1];
+    }
+    lastNumber[len] = 0;
+
+    /* Quarto campo tra virgolette = data/ora SMS, se presente. */
+    if(nq >= 8 && (q[7] - q[6]) >= 18){
+        char *t = q[6] + 1;
+        DateSMS.Year = smsParseTwoDigits(t);
+        DateSMS.Month = smsParseTwoDigits(t + 3);
+        DateSMS.Date = smsParseTwoDigits(t + 6);
+        TimeSMS.Hours = smsParseTwoDigits(t + 9);
+        TimeSMS.Minutes = smsParseTwoDigits(t + 12);
+        TimeSMS.Seconds = smsParseTwoDigits(t + 15);
+        lastSMS = timetoposix(DateSMS,TimeSMS);
+    }
+
+    body = strchr(p,'\n');
+    if(body == 0) return 0;
+    body++;
+    while(*body == '\r' || *body == '\n') body++;
+
+    end = strstr(body,"\r\n\r\nOK");
+    if(end == 0) end = strstr(body,"\r\nOK");
+    if(end == 0) end = strstr(body,"\nOK");
+    if(end == 0) end = body + strlen(body);
+
+    while(end > body && (*(end - 1) == '\r' || *(end - 1) == '\n' || *(end - 1) == 0x1A)){
+        end--;
+    }
+
+    copyLen = (int)(end - body);
+    if(copyLen <= 0) return 0;
+    if(copyLen > 299) copyLen = 299;
+
+    memcpy(outBuf, body, copyLen);
+    outBuf[copyLen] = 0;
+
+    /* Cancello solo l'SMS appena letto, non tutta la memoria. */
+    if(lastReadSmsIndex > 0){
+        sprintf((char*)command,"AT+CMGD=%d\r",lastReadSmsIndex);
+        HAL_UART_Transmit(&huart6,command,strlen((char*)command),100);
+        delay(100);
+    }
+
+    return copyLen;
 }
+
 
 
 
 void refreshSignal(u8 *messaggio){
 
-	int signal = 0;
-	u8 uart[20];
+	int signal = 99;
+	u8 uart[30];
+	char *p;
 	
-	if(messaggio[1] == 44){
-		signal = messaggio[0] - 48;
+	if(messaggio == 0){
+		segnaleGSM = 0;
+		return;
+	}
+
+	/*
+	 * Parser robusto della risposta AT+CSQ.
+	 * Accetta sia il buffer completo, per esempio:
+	 *   AT+CSQ\r\r\n+CSQ: 18,99\r\n\r\nOK\r\n
+	 * sia una stringa che inizia gia' dal numero.
+	 */
+	p = strstr((char*)messaggio,"CSQ:");
+	if(p != 0){
+		p += 4;
 	}
 	else{
-		signal = (messaggio[0]-48)*10 + (messaggio[1]-48);
+		p = (char*)messaggio;
 	}
-	
-	sprintf(uart,"segnale: %d\n",signal);
+
+	while(*p == ' ' || *p == '\r' || *p == '\n' || *p == '\t'){
+		p++;
+	}
+
+	if(*p >= '0' && *p <= '9'){
+		signal = atoi(p);
+	}
+
+	sprintf((char*)uart,"segnale CSQ: %d\n",signal);
 	inviaDebug(uart);
-	//return;
 	
-	
+	/* 0..31 valido, 99 non noto. Manteniamo uscita storica 0..4. */
 	if(signal >= 2 && signal <= 9){
 		segnaleGSM = 1;
 	}
 	else if(signal >= 10 && signal <= 16){
 		segnaleGSM = 2;
 	}
-  else if(signal >= 17 && signal <= 25){
+	else if(signal >= 17 && signal <= 25){
 		segnaleGSM = 3;
 	}
 	else if(signal >= 26 && signal <= 31){
@@ -1961,9 +2208,17 @@ void refreshSignal(u8 *messaggio){
 }
 
 void requestSignal(void){
-	u8 command[7] = "AT+CSQ\r";
-	
-	HAL_UART_Transmit(&huart6,&command[0],7,1000);
+	/*
+	 * Richiesta livello segnale gestita come transazione AT.
+	 * Parte solo se il modulo e' libero; statoModulo viene liberato alla ricezione di +CSQ.
+	 */
+	if(statoModulo != 0){
+		return;
+	}
+
+	statoModulo++;
+	inviaDebug("request signal\n");
+	HAL_UART_Transmit(&huart6,(u8*)"AT+CSQ\r",7,1000);
 }
 
 
@@ -1971,14 +2226,20 @@ void requestSignal(void){
 //invio SMS da interrupt
 void inviaSMS(uint8_t *numero, int sizeNumero, uint8_t *messaggio,int sizeMessaggio){
 
-	//HAL_UART_Transmit(&huart1,(u8*)"numero:",7,100);
-	//HAL_UART_Transmit(&huart1,lastNumber,strlen(lastNumber),100);
-	
+	/*
+	 * Accodamento sicuro dell'SMS. Limitiamo numero e testo per non uscire
+	 * dai buffer statici e per restare entro la lunghezza SMS standard.
+	 */
+	if(numero == 0 || messaggio == 0) return;
+	if(sizeNumero <= 0 || sizeMessaggio <= 0) return;
+	if(sizeNumero > 19) sizeNumero = 19;
+	if(sizeMessaggio > 159) sizeMessaggio = 159;
 
 	if(inviaSMSpollFlag == 0){
 		sizeNumeroPoll = sizeNumero;
 		sizeMessaggioPoll = sizeMessaggio;
-			
+		memset(numeroPoll,0,sizeof(numeroPoll));
+		memset(messaggioPoll,0,sizeof(messaggioPoll));
 		copiaArray(&numeroPoll[0],&numero[0],sizeNumero);
 		copiaArray(&messaggioPoll[0],&messaggio[0],sizeMessaggio);
 		inviaSMSpollFlag = 1;
@@ -1986,15 +2247,13 @@ void inviaSMS(uint8_t *numero, int sizeNumero, uint8_t *messaggio,int sizeMessag
 	else{
 		sizeNumeroPollCoda = sizeNumero;
 		sizeMessaggioPollCoda = sizeMessaggio;
-			
+		memset(numeroPollCoda,0,sizeof(numeroPollCoda));
+		memset(messaggioPollCoda,0,sizeof(messaggioPollCoda));
 		copiaArray(&numeroPollCoda[0],&numero[0],sizeNumero);
 		copiaArray(&messaggioPollCoda[0],&messaggio[0],sizeMessaggio);
 		inviaSMSpollFlagCoda = 1;
 	}
-	
-	
 	return;
-	
 }
 
 //invio SMS polling
@@ -2005,7 +2264,9 @@ void inviaSMSpoll(u8 coda){
 	
 		
 	if(coda == 1){
+		if(smsTextModeReady == 0){ initSMStextMode(); }
 		statoModulo++; inviaDebug("statoModulo++\n");
+		smsTxBusy = 1;
 		
 		inviaDebug("poll = 1\n");
 		
@@ -2015,7 +2276,7 @@ void inviaSMSpoll(u8 coda){
 		HAL_UART_Transmit(&huart6,&numeroPoll[0],sizeNumeroPoll,1000);
 		HAL_UART_Transmit(&huart6,&command3[0],2,1000);
 		
-		HAL_Delay(20);
+		HAL_Delay(200);
 		sprintf((char *)command,"\x1A");
 		HAL_UART_Transmit(&huart6,&messaggioPoll[0],sizeMessaggioPoll,1000);
 		
@@ -2026,7 +2287,9 @@ void inviaSMSpoll(u8 coda){
 		HAL_UART_Transmit(&huart6,&command[0],1,1000);
 	}
 	else if(coda == 2){
+		if(smsTextModeReady == 0){ initSMStextMode(); }
 		statoModulo++; inviaDebug("statoModulo++\n");
+		smsTxBusy = 1;
 		inviaDebug("poll = 2\n");
 		sprintf((char *)command,"AT+CMGS=\x22");
 		sprintf((char *)command3,"\x22\r");
@@ -2034,7 +2297,7 @@ void inviaSMSpoll(u8 coda){
 		HAL_UART_Transmit(&huart6,&numeroPollCoda[0],sizeNumeroPollCoda,1000);
 		HAL_UART_Transmit(&huart6,&command3[0],2,1000);
 		
-		HAL_Delay(20);
+		HAL_Delay(200);
 		sprintf((char *)command,"\x1A");
 		HAL_UART_Transmit(&huart6,&messaggioPollCoda[0],sizeMessaggioPollCoda,1000);
 						

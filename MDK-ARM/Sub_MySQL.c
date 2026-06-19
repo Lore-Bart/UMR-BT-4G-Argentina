@@ -74,14 +74,42 @@ extern uint32_t R1n[3],R2n[3]; //energie reattive negative
 
 extern u8 updateGSMatt;
 
+/*
+ * Buffer per richieste DB generate da eventi/RTC.
+ * Le funzioni chiamate con passaggio != 0 non usano piu' direttamente il modem:
+ * salvano i dati e accodano la richiesta. Il main loop la invia solo quando
+ * internet e' connesso e statoModulo e' libero.
+ */
+static u32 mysqlPendingFaultCurrent[6];
+static u32 mysqlPendingUnderVoltage[3];
+static u32 mysqlPendingOverVoltage[3];
+static u16 mysqlPendingNeutralStartDiff[3];
+static u16 mysqlPendingNeutralEndMax[3];
+static u16 mysqlPendingNeutralEndEnd[3];
+static u32 mysqlPendingNeutralEndTimeMax = 0;
+
+static int mysqlCanSend(void)
+{
+	if(updateGSMatt != 0) return 0;
+	if(statoInternet != 3) return 0;
+	if(statoModulo != 0) return 0;
+	if(mySQL[0] == 0 || userSQL[0] == 0 || pwSQL[0] == 0) return 0;
+	return 1;
+}
+
 
 void aggiungiIntrusioneDB(u8 passaggio){
 	
-	u8 stringaIntrusioneDB[150];
+	u8 stringaIntrusioneDB[250];
 	
 	int i = 0;
 	
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		aggiungiIntrusioneDBflag = 1;
+		return;
+	}
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
@@ -122,11 +150,16 @@ void aggiungiIntrusioneDB(u8 passaggio){
 void aggiungiMeasProfileDB(u8 passaggio){
 	
 	
-	u8 stringaMeasDB[500];
+	u8 stringaMeasDB[900];
 	
 	int i = 0;
 	
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		aggiungiMeasProfileDBflag = 1;
+		return;
+	}
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
@@ -169,11 +202,16 @@ void aggiungiMeasProfileDB(u8 passaggio){
 
 void aggiungiLoadProfileDB(u8 passaggio){
 
-	u8 stringaLoadDB[500];
+	u8 stringaLoadDB[900];
 	
 	int i = 0;
 	
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		aggiungiLoadProfileDBflag = 1;
+		return;
+	}
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 		
@@ -214,11 +252,20 @@ void aggiungiLoadProfileDB(u8 passaggio){
 
 void aggiungiGuastoDB(u8 passaggio, u32* corrente){
 
-	u8 stringaGuastoDB[150];
+	u8 stringaGuastoDB[300];
 	
 	int i = 0;
 	
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		for(i=0;i<6;i++){ mysqlPendingFaultCurrent[i] = corrente[i]; }
+		aggiungiGuastoDBflag = 1;
+		return;
+	}
+
+	corrente = &mysqlPendingFaultCurrent[0];
+	i = 0;
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
@@ -260,11 +307,20 @@ void aggiungiGuastoDB(u8 passaggio, u32* corrente){
 
 void aggiungiUnderDB(u8 passaggio, u32* tensione){
 	
-	u8 stringaUnderDB[150];
+	u8 stringaUnderDB[300];
 	
 	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		for(i=0;i<3;i++){ mysqlPendingUnderVoltage[i] = tensione[i]; }
+		aggiungiUnderDBflag = 1;
+		return;
+	}
+
+	tensione = &mysqlPendingUnderVoltage[0];
+	i = 0;
+
+	if(mysqlCanSend() == 0){
 		return;
 	}	
 	
@@ -305,11 +361,20 @@ void aggiungiUnderDB(u8 passaggio, u32* tensione){
 
 void aggiungiOverDB(u8 passaggio, u32* tensione){
 
-	u8 stringaOverDB[150];
+	u8 stringaOverDB[300];
 	
 	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		for(i=0;i<3;i++){ mysqlPendingOverVoltage[i] = tensione[i]; }
+		aggiungiOverDBflag = 1;
+		return;
+	}
+
+	tensione = &mysqlPendingOverVoltage[0];
+	i = 0;
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
@@ -350,13 +415,22 @@ void aggiungiOverDB(u8 passaggio, u32* tensione){
 
 void aggiungiNeutroStartDB(u8 passaggio, u16* diffStart){
 
-	u8 stringaNeutroStartDB[150];
+	u8 stringaNeutroStartDB[300];
+	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		for(i=0;i<3;i++){ mysqlPendingNeutralStartDiff[i] = diffStart[i]; }
+		aggiungiNeutroStartDBflag = 1;
+		return;
+	}
+
+	diffStart = &mysqlPendingNeutralStartDiff[0];
+	i = 0;
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
-	int i = 0;
 	
 		while(i<150){
 			stringaNeutroStartDB[i] = 0;
@@ -395,13 +469,28 @@ void aggiungiNeutroStartDB(u8 passaggio, u16* diffStart){
 
 void aggiungiNeutroEndDB(u8 passaggio, u32 timeMax, u16* diffMax, u16* diffEnd){
 
-	u8 stringaNeutroEndDB[200];
+	u8 stringaNeutroEndDB[350];
+	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		mysqlPendingNeutralEndTimeMax = timeMax;
+		for(i=0;i<3;i++){
+			mysqlPendingNeutralEndMax[i] = diffMax[i];
+			mysqlPendingNeutralEndEnd[i] = diffEnd[i];
+		}
+		aggiungiNeutroEndDBflag = 1;
+		return;
+	}
+
+	timeMax = mysqlPendingNeutralEndTimeMax;
+	diffMax = &mysqlPendingNeutralEndMax[0];
+	diffEnd = &mysqlPendingNeutralEndEnd[0];
+	i = 0;
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	
-	int i = 0;
 	
 		while(i<200){
 			stringaNeutroEndDB[i] = 0;
@@ -439,11 +528,16 @@ void aggiungiNeutroEndDB(u8 passaggio, u32 timeMax, u16* diffMax, u16* diffEnd){
 
 void aggiungiRebootDB(u8 passaggio){
 
-	u8 stringaRebootDB[150];
+	u8 stringaRebootDB[250];
 	
 	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		aggiungiRebootDBflag = 1;
+		return;
+	}
+
+	if(mysqlCanSend() == 0){
 		return;
 	}	
 
@@ -486,11 +580,16 @@ void aggiungiRebootDB(u8 passaggio){
 
 void aggiungiDebugDB(u8 passaggio){
 
-	u8 stringaDebugDB[150];
+	u8 stringaDebugDB[300];
 	
 	int i = 0;
 
-	if(updateGSMatt != 0){
+	if(passaggio != 0){
+		aggiungiDebugDBflag = 1;
+		return;
+	}
+
+	if(mysqlCanSend() == 0){
 		return;
 	}
 	

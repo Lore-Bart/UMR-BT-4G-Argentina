@@ -523,7 +523,10 @@ void RTCpolling(void){
 		if(currentTime.Seconds == 0 && produzione == 0){
 		sprintf(uart,"minuto: %d\n",currentTime.Minutes);
 		inviaDebug(uart);
-		requestSignal();
+		/*
+		 * La richiesta del livello segnale non viene piu' fatta qui ogni minuto.
+		 * Ora e' gestita dal main loop, solo quando il modulo 4G e' libero.
+		 */
 		}
 		
 		//sprintf(uart,"guasto %u %u %u %u %u %u\n corrente %ld %ld %ld %ld %ld %ld\n", acquisizioneADC(1),acquisizioneADC(2),acquisizioneADC(3),acquisizioneADC(4),acquisizioneADC(5),acquisizioneADC(6),I1[0],I1[1],I1[2],I2[0],I2[1],I2[2]);

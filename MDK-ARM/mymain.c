@@ -4,6 +4,14 @@
 #include "stdio.h"
 #include "string.h"
 
+/* Richiesta livello segnale SIM7600: prima lettura 10 s dopo aggancio rete, poi ogni 5 minuti. */
+#define SIGNAL_REQUEST_FIRST_DELAY_MS   10000UL
+#define SIGNAL_REQUEST_INTERVAL_MS      300000UL
+
+/* SMS: forziamo text mode dopo aggancio modulo e dopo eventuale riaggancio rete. */
+#define SMS_TEXTMODE_FIRST_DELAY_MS     15000UL
+#define SMS_TEXTMODE_RETRY_MS           60000UL
+
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c3;
@@ -146,6 +154,7 @@ u8 checkTensioni = 0;
 
 extern u8 indicationSMSarrivato[100];
 extern u8 indicationSMSflag;
+extern u8 smsTextModeReady;
 
 extern u8 stato4G;
 extern u8 aggioraOrarioNTPflag;
@@ -157,6 +166,9 @@ extern u8 timerModuloESC;
 extern u8 disattivaInternetFlag;
 
 u8 testAPNflag = 0;
+
+static u8 smsTextSchedulerArmed = 0;
+static u32 nextSmsTextModeTick = 0;
 
 u8 riavvia = 0;
 
@@ -272,6 +284,8 @@ int mymain(void){
 		u8 addressFram[2];
 		int u = 0;
 		u32 tick, tickOld;
+		u32 nextSignalRequestTick = 0;
+		u8 signalSchedulerArmed = 0;
 			//da cancellare
 			u8 uartmsg[100];
 			
@@ -320,7 +334,7 @@ int mymain(void){
 	
 	tickOld = HAL_GetTick();
 	
-	//attivo la modalità testo per gli SMS
+	//attivo la modalit testo per gli SMS
 	//invia4G("AT+CMGF=1\r");
 	
 	//inviaDebug("primo avvio\n");
@@ -357,45 +371,85 @@ int mymain(void){
 		
 		resetWD();
 		
+		/*
+		 * Inizializzazione SMS text mode.
+		 * Deve avvenire dopo che il modem e' acceso/agganciato e solo quando
+		 * la UART 4G e' libera, cosi' i comandi SMS arrivano come testo e non PDU.
+		 */
+		if(avvioConcluso == 1 && stato4G > 1){
+			if(smsTextSchedulerArmed == 0){
+				nextSmsTextModeTick = HAL_GetTick() + SMS_TEXTMODE_FIRST_DELAY_MS;
+				smsTextSchedulerArmed = 1;
+			}
+			if(smsTextModeReady == 0 && statoModulo == 0 && updateGSMatt == 0 && ((int32_t)(HAL_GetTick() - nextSmsTextModeTick) >= 0)){
+				initSMStextMode();
+				nextSmsTextModeTick = HAL_GetTick() + SMS_TEXTMODE_RETRY_MS;
+			}
+		}
+		else{
+			smsTextSchedulerArmed = 0;
+			smsTextModeReady = 0;
+		}
+		
+		/*
+		 * Richiesta periodica livello segnale.
+		 * Parte solo quando il modulo 4G e' agganciato e statoModulo e' libero,
+		 * quindi non collide con connessione internet, HTTP/MySQL, SMS, NTP o aggiornamento GSM.
+		 */
+		if(avvioConcluso == 1 && stato4G > 1){
+			if(signalSchedulerArmed == 0){
+				nextSignalRequestTick = HAL_GetTick() + SIGNAL_REQUEST_FIRST_DELAY_MS;
+				signalSchedulerArmed = 1;
+			}
+
+			if(statoModulo == 0 && ((int32_t)(HAL_GetTick() - nextSignalRequestTick) >= 0)){
+				requestSignal();
+				nextSignalRequestTick = HAL_GetTick() + SIGNAL_REQUEST_INTERVAL_MS;
+			}
+		}
+		else{
+			signalSchedulerArmed = 0;
+		}
+		
 		//aggiungi a database
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiIntrusioneDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiIntrusioneDBflag == 1){
 			aggiungiIntrusioneDBflag = 0;
 			aggiungiIntrusioneDB(0);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiMeasProfileDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiMeasProfileDBflag == 1){
 			aggiungiMeasProfileDBflag = 0;
 			aggiungiMeasProfileDB(0);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiLoadProfileDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiLoadProfileDBflag == 1){
 			aggiungiLoadProfileDBflag = 0;
 			aggiungiLoadProfileDB(0);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiGuastoDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiGuastoDBflag == 1){
 			aggiungiGuastoDBflag = 0;
 			aggiungiGuastoDB(0,&corrente[0]);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiUnderDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiUnderDBflag == 1){
 			aggiungiUnderDBflag = 0;
 			aggiungiUnderDB(0,&corrente[0]);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiOverDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiOverDBflag == 1){
 			aggiungiOverDBflag = 0;
 			aggiungiOverDB(0,&corrente[0]);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiNeutroStartDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiNeutroStartDBflag == 1){
 			aggiungiNeutroStartDBflag = 0;
 			aggiungiNeutroStartDB(0,&diff[0]);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiNeutroEndDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiNeutroEndDBflag == 1){
 			aggiungiNeutroEndDBflag = 0;
 			aggiungiNeutroEndDB(0,0,&diff[0],&diff[0]);
 		}
 
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiRebootDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiRebootDBflag == 1){
 			aggiungiRebootDBflag = 0;
 			aggiungiRebootDB(0);
 		}
-		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && aggiungiDebugDBflag == 1){
+		if(statoModulo == 0 && statoInternet == 3 && avvioConcluso == 1 && updateGSMatt == 0 && aggiungiDebugDBflag == 1){
 			aggiungiDebugDBflag = 0;
 			aggiungiDebugDB(0);
 		}
@@ -407,6 +461,14 @@ int mymain(void){
 			HAL_Delay(200);
 			invia4G("\r");
 			statoModulo = 0;
+			/*
+			 * Se il timeout avviene mentre siamo in connessione internet,
+			 * non lasciamo statoInternet bloccato a 2: torniamo a 1 per permettere
+			 * un nuovo tentativo pulito dal main loop.
+			 */
+			if(statoInternet == 2){
+				statoInternet = 1;
+			}
 		}
 		
 		if(disattivaInternetFlag == 1){
@@ -536,8 +598,13 @@ int mymain(void){
 		
 		//lettura SMS
 		if(indicationSMSflag == 1 && statoModulo == 0){
-			indicationSMSflag = 0;
-			leggiSMS(&indicationSMSarrivato[14]);		
+			if(smsTextModeReady == 0){
+				initSMStextMode();
+			}
+			else{
+				indicationSMSflag = 0;
+				leggiSMS(&indicationSMSarrivato[0]);
+			}
 		}
 		if(checkNeutroFlag == 1){
 			checkNeutroFlag = 0;

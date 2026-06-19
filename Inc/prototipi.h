@@ -78,6 +78,7 @@ void filtroMeas(u32 estremoA, u32 estremoB);
 u32 readRegADE1(u8 *registro);
 void autoSync (void);
 void requestSignal(void);
+void initSMStextMode(void);
 void refreshSignal(u8 *messaggio);
 void adeinit3(void);
 void acquisizioni(void);
