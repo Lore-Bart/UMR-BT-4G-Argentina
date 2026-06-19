@@ -1,6 +1,8 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
+#include "string.h"
+#include "stdio.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -25,6 +27,11 @@ int uartPosBT = 0;
 int uartPosOldBT = 0;
 uint32_t sizeBT;
 uint8_t messaggioRecBT[500];
+
+#define BT_UPDATE_PACKET_TOTAL_SIZE 74U
+uint8_t updatePacketBT[BT_UPDATE_PACKET_TOTAL_SIZE];
+u32 updatePacketBTsize = 0;
+u8 updatePacketReady = 0;
 
 uint8_t rx4G[500];
 int uartPos4G = 0;
@@ -63,45 +70,29 @@ extern u8 updateGSMatt;
 void USART2_IRQHandler(void)
 {
 	int i = 0;
-	u8 uart[20];
+	u8 uart[80];
 	
   HAL_UART_IRQHandler(&huart2);
-	
-	
-
-	
 
 	for(i=0;i<500;i++){messaggioRecBT[i] = 0;} //azzero vettore UART
 		
-	
-	uartPosBT = 500 - LL_DMA_GetDataLength(DMA1, LL_DMA_STREAM_5); // acquisizione dati in ingresso dal GSM
+	uartPosBT = 500 - LL_DMA_GetDataLength(DMA1, LL_DMA_STREAM_5); // acquisizione dati in ingresso dal BT
 	sizeBT = RicMsg(&rxBT[0],&messaggioRecBT[0],uartPosBT,uartPosOldBT,500);
 	uartPosOldBT = uartPosBT;
 	
-	sprintf(uart,"pos: %d oldPos: %d\n", uartPosBT, uartPosOldBT);
+	sprintf(uart,"BT rx bytes: %u\n", (unsigned int)sizeBT);
 	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
-	//__HAL_UART_CLEAR_IDLEFLAG(&huart2);
-	//return;
-	
-		
-	HAL_UART_Transmit(&huart1,messaggioRecBT,strlen(messaggioRecBT),100);
-	HAL_UART_Transmit(&huart1,(u8*)"\n",1,100);
-	
-	//BTattivo = 1;
-	
-	/*if(comparaStringhe(&messaggioRecBT[0],(u8*)"%CONNECT",8) || comparaStringhe(&messaggioRecBT[0],(u8*)"%RFCOMM_OPEN%",13)){
-		BTattivo = 1;
-	}
-	else if(comparaStringhe(&messaggioRecBT[0],(u8*)"%DISCONN%",9) || comparaStringhe(&messaggioRecBT[0],(u8*)"%RFCOMM_CLOSE%",14)){
-		BTattivo = 0;
-	}*/
 	
 	if(updateAttivo == 0){
-		if(comparaStringhe(&messaggioRecBT[0],(u8*)"%CONNECT",8) && strlen(messaggioRecBT) > 25){
+		/* Fuori dall'aggiornamento il payload e' testo, quindi si puo' usare strlen. */
+		HAL_UART_Transmit(&huart1,messaggioRecBT,strlen((char*)messaggioRecBT),100);
+		HAL_UART_Transmit(&huart1,(u8*)"\n",1,100);
+		
+		if(comparaStringhe(&messaggioRecBT[0],(u8*)"%CONNECT",8) && strlen((char*)messaggioRecBT) > 25){
 			eseguiComandoBT(&messaggioRecBT[35]);
 			inviaDebug((u8*)"\ncomando\n");
 		}
-		else if(comparaStringhe(&messaggioRecBT[0],(u8*)"%RFCOMM_OPEN%",13) && strlen(messaggioRecBT) > 20){
+		else if(comparaStringhe(&messaggioRecBT[0],(u8*)"%RFCOMM_OPEN%",13) && strlen((char*)messaggioRecBT) > 20){
 			eseguiComandoBT(&messaggioRecBT[13]);
 			inviaDebug((u8*)"\ncomando\n");
 		}
@@ -110,9 +101,28 @@ void USART2_IRQHandler(void)
 		}
 	}
 	else{
-			programmaPacchetto = 1;
+		/* Durante l'update il pacchetto e' binario: non usare strlen e non interpretarlo come testo.
+		   Accumulo eventuali frammenti fino ai 74 byte attesi: 2 byte numero pacchetto + 72 byte dati. */
+		if(updatePacketReady == 0 && programmaPacchetto == 0){
+			for(i=0; i<(int)sizeBT && updatePacketBTsize < BT_UPDATE_PACKET_TOTAL_SIZE; i++){
+				updatePacketBT[updatePacketBTsize] = messaggioRecBT[i];
+				updatePacketBTsize++;
+			}
+			
+			if(updatePacketBTsize >= BT_UPDATE_PACKET_TOTAL_SIZE){
+				updatePacketReady = 1;
+				programmaPacchetto = 1;
+				updateAttivo = 15;
+			}
+			else{
+				sprintf(uart,"BT update partial packet: %u/74\n", (unsigned int)updatePacketBTsize);
+				inviaDebug(uart);
+			}
+		}
+		else{
+			inviaDebug("BT update packet ignored: previous packet still pending\n");
+		}
 	}
-	
 	
 	__HAL_UART_CLEAR_IDLEFLAG(&huart2);
 }

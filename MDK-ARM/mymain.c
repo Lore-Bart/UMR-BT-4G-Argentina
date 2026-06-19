@@ -53,11 +53,14 @@ u8 numeroAllarmi[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 //versione software
-u16 software = 21;
+u16 software = 28;
 u8 XL = 0;	
 
 extern u8 BTattivo;
-extern uint8_t messaggioRecBT[100];
+extern uint8_t messaggioRecBT[500];
+extern uint8_t updatePacketBT[74];
+extern u32 updatePacketBTsize;
+extern u8 updatePacketReady;
 
 //NFC
 int sizeNFC = 0;
@@ -576,13 +579,22 @@ int mymain(void){
 		}
 		if(programmaPacchetto != 0){
 			programmaPacchetto = 0;
-			pacchettoN = array2u16(&messaggioRecBT[0]);
-			if(app == 0x11111111){
-				progPacchetto3(&messaggioRecBT[2],pacchettoN,paccTot);
+			if(updatePacketReady != 0 && updatePacketBTsize >= 74){
+				pacchettoN = array2u16(&updatePacketBT[0]);
+				if(app == 0x11111111){
+					progPacchetto3(&updatePacketBT[2],pacchettoN,paccTot);
+				}
+				else{
+					progPacchetto(&updatePacketBT[2],pacchettoN,paccTot);
+				}
+				updatePacketReady = 0;
+				updatePacketBTsize = 0;
 			}
 			else{
-				progPacchetto(&messaggioRecBT[2],pacchettoN,paccTot);
-			}			
+				inviaDebug("BT update packet missing or incomplete - ignored\n");
+				updatePacketReady = 0;
+				updatePacketBTsize = 0;
+			}
 		}
 		//invio SMS
 		if(statoModulo == 0 && inviaSMSpollFlag == 1 && stato4G > 1){

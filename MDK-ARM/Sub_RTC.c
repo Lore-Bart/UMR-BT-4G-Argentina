@@ -87,7 +87,7 @@ extern u8 autoSyncActive;
 extern u8 BTattivo;
 extern uint32_t indiceLoad;
 extern uint32_t indiceMeas;
-extern uint8_t messaggioRecBT[100];
+extern uint8_t messaggioRecBT[500];
 extern u32 contatore;
 
 extern u16 calibAntifurto;

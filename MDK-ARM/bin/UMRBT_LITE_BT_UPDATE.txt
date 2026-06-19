@@ -1,0 +1,23 @@
+UMR-BT LITE Bluetooth update image
+
+Input APP1 0x08008200: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 (polling) - Argentina\MDK-ARM\bin\app_08008200.bin
+Input APP3 0x08040200: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 (polling) - Argentina\MDK-ARM\bin\app_08040200.bin
+Output unico app Android: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 (polling) - Argentina\MDK-ARM\bin\UMRBT_LITE_BT_UPDATE.bin
+
+APP1 raw bytes:        117488
+APP1 padded 72 bytes:  117504
+APP3 raw bytes:        117488
+APP3 padded 72 bytes:  117504
+Half size finale:      117504
+Pacchetti per metà:    1632
+Pacchetti totali:      3264
+Output bytes:          235008
+
+Controlli:
+- half_size multiplo di 72: True
+- output multiplo di 144:   True
+- limite APP1 sicuro:       228816 byte
+
+Nota:
+Il firmware divide il file a paccTot/2; quindi le due metà devono avere lo stesso numero di pacchetti.
+Lo spazio mancante viene riempito con 0xFF.

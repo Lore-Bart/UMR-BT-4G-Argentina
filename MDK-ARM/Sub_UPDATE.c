@@ -2,6 +2,7 @@
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
 #include "string.h"
+#include "stdio.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -43,6 +44,79 @@ u16 updateGSMvers;
 u8 downloadNewPackFlag = 0;
 u8 bytes16[16] = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
 
+
+#define BT_UPDATE_TIMEOUT_TICKS          15U
+#define BT_UPDATE_PAYLOAD_BYTES          72U
+#define BT_UPDATE_WORDS_PER_PACKET       18U
+#define BT_UPDATE_APP_SLOT_SIZE_BYTES    229376UL
+#define BT_UPDATE_APP1_MARKER_ADDR       0x08008000UL
+#define BT_UPDATE_APP1_BASE_ADDR         0x08008200UL
+#define BT_UPDATE_APP3_MARKER_ADDR       0x08040000UL
+#define BT_UPDATE_APP_VALID_MARKER       0x77777777UL
+#define BT_UPDATE_ACTIVE_MARKER          0x11111111UL
+
+static u32 btUpdateWordFromPacket(u8 *inBuf, int wordIndex)
+{
+	u32 progVar;
+	int i = wordIndex * 4;
+	progVar = inBuf[i+3];
+	progVar = (progVar << 8) | inBuf[i+2];
+	progVar = (progVar << 8) | inBuf[i+1];
+	progVar = (progVar << 8) | inBuf[i];
+	return progVar;
+}
+
+static u8 btUpdateProgramWordVerified(u32 address, u32 progVar)
+{
+	int retry;
+	for(retry=0; retry<3; retry++){
+		if(*(volatile u32*)address == progVar){
+			return 1;
+		}
+		HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
+		FLASH_WaitForLastOperation(1000);
+		if(*(volatile u32*)address == progVar){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void btUpdateSendOK(void)
+{
+	u8 OK[4] = "OK\r\n";
+	if(BTattivo == 1){
+		HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+	}
+}
+
+static void btUpdateSendERR(void)
+{
+	u8 ER[4] = "ER\r\n";
+	if(BTattivo == 1){
+		HAL_UART_Transmit(&huart2,&ER[0],4,1000);
+	}
+}
+
+static u8 btUpdateProgram72Verified(u32 baseAddress, u16 packetIndex, u8 *inBuf)
+{
+	int i;
+	u32 address;
+	u32 progVar;
+	for(i=0;i<BT_UPDATE_WORDS_PER_PACKET;i++){
+		progVar = btUpdateWordFromPacket(inBuf,i);
+		address = baseAddress + ((u32)BT_UPDATE_PAYLOAD_BYTES * packetIndex) + ((u32)4 * i);
+		if(btUpdateProgramWordVerified(address,progVar) == 0){
+			u8 uart[120];
+			sprintf(uart,"BT update flash verify failed pkt %u addr 0x%08X\n", (unsigned int)packetIndex, (unsigned int)address);
+			inviaDebug(uart);
+			return 0;
+		}
+		resetWD();
+	}
+	return 1;
+}
+
 extern u8 riavvia;
 
 extern u8 serialeDaScrivere[4];
@@ -50,222 +124,150 @@ extern u8 serialeDaScrivere[4];
 u8 progPacchetto(u8 *inBuf, u16 nPacchetto, u16 paccTot){
 	
 	u32 address;
-	u32 progVar;
-	static u8 app;
-	int i;
-	u8 OK[4] = "OK\r\n";
-	u8 uart[100];
+	static u8 app = 0;
+	static u8 appReady = 0;
+	u16 halfPackets;
+	u32 baseAddress;
+	u8 uart[120];
 	
-
-	
-
 	HAL_FLASH_Unlock();
-
 	
-	sprintf(uart,"posizione 1, %d\n",nPacchetto);
-	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
-	
-	if(nPacchetto > paccTot){
+	if(paccTot < 2 || nPacchetto >= paccTot){
+		sprintf(uart,"BT update invalid packet %u/%u\n", (unsigned int)nPacchetto, (unsigned int)paccTot);
+		inviaDebug(uart);
+		btUpdateSendERR();
+		updateAttivo = 0;
+		emergenza = 3;
 		return 0;
 	}
-	updateAttivo = 5;
 	
+	updateAttivo = BT_UPDATE_TIMEOUT_TICKS;
 	riavvioForzato = timeoutModulo;
+	halfPackets = paccTot/2;
 	
-
-	if(nPacchetto < paccTot/2){ 
-		
-		//operazioni primo pacchetto
-		if(nPacchetto == 0){		
-			//controllo su che pezzo di flash sono
-			address = *(u32*)0x08008000;
-			if(address == 0x11111111){
-
+	/* Questa funzione programma la prima meta' del file update, mantenendo il protocollo app originale. */
+	if(nPacchetto < halfPackets){
+		if(nPacchetto == 0 || appReady == 0){
+			address = *(volatile u32*)BT_UPDATE_APP1_MARKER_ADDR;
+			if(address == BT_UPDATE_ACTIVE_MARKER){
 				app = 1;
 			}
 			else{
-
-				app = 0;		
+				app = 0;
 			}
-			
-			//pacchetto[2+i] + pacchetto[3+i]*256 + pacchetto[4+i]*65536 + pacchetto[5+i]*16777216;
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-				FLASH_WaitForLastOperation(1000);			
-			}
-			
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-			}
-			
+			appReady = 1;
+			sprintf(uart,"BT update target slot base: 0x%08X\n", (unsigned int)(BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app)));
+			inviaDebug(uart);
+		}
+		baseAddress = BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app);
+		
+		if(btUpdateProgram72Verified(baseAddress,nPacchetto,inBuf) == 0){
+			btUpdateSendERR();
+			updateAttivo = 0;
+			emergenza = 3;
+			return 0;
 		}
 		
-		else if(nPacchetto != 0 && nPacchetto != ((paccTot/2)-1)){
-			//scrivo il pacchetto
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 72*nPacchetto + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);	
-				FLASH_WaitForLastOperation(1000);				
+		if(nPacchetto == (halfPackets-1)){
+			if(btUpdateProgramWordVerified(BT_UPDATE_APP1_MARKER_ADDR,BT_UPDATE_APP_VALID_MARKER) == 0){
+				inviaDebug("BT update marker verify failed app1\n");
+				btUpdateSendERR();
+				updateAttivo = 0;
+				emergenza = 3;
+				return 0;
 			}
-			
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-			}
-			
-		}
-		else {
-			//scrivo l'ultimo pacchetto
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 72*nPacchetto + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-			FLASH_WaitForLastOperation(1000);				
-			}
-			
-			progVar = 0x77777777;
-			address = 0x08008000;
-			HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-			FLASH_WaitForLastOperation(1000);		
-						
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-				
-			}
-			HAL_UART_Transmit(&huart1,&OK[0],4,1000);
-			
+			inviaDebug("BT update first image half programmed and verified\n");
 		}
 		
+		btUpdateSendOK();
+		return 1;
 	}
 	else{
-		if(BTattivo == 1){
-			HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-		}
-		
+		/* Seconda meta' ignorata su questo slot, come da protocollo originale. */
+		btUpdateSendOK();
 		if(nPacchetto == paccTot-1){
-				HAL_Delay(1000);
-				//riavvioUMR();
-				HAL_TIM_Base_Stop(&htim4);		
+			inviaDebug("BT update completed, reboot requested\n");
+			HAL_Delay(1000);
+			HAL_TIM_Base_Stop(&htim4);
 		}
-	
+		return 1;
 	}
-		
 }
 
 
 u8 progPacchetto3(u8 *inBuf, u16 nPacchetto, u16 paccTot){
 	
 	u32 address;
-	u32 progVar;
-	static u8 app;
-	int i;
-	u8 OK[4] = "OK\r\n";
-	u8 uart[100];
+	static u8 app = 0;
+	static u8 appReady = 0;
+	u16 halfPackets;
+	u16 localPacket;
+	u32 baseAddress;
+	u8 uart[120];
 	
-
 	HAL_FLASH_Unlock();
 	
-	
-	sprintf(uart,"posizione 2, %d\n",nPacchetto);
-	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
-	
-	if(nPacchetto > paccTot){
+	if(paccTot < 2 || nPacchetto >= paccTot){
+		sprintf(uart,"BT update invalid packet %u/%u\n", (unsigned int)nPacchetto, (unsigned int)paccTot);
+		inviaDebug(uart);
+		btUpdateSendERR();
+		updateAttivo = 0;
+		emergenza = 3;
 		return 0;
 	}
-	updateAttivo = 5;
 	
-	
+	updateAttivo = BT_UPDATE_TIMEOUT_TICKS;
 	riavvioForzato = timeoutModulo;
-
-	if(nPacchetto < paccTot/2){ 
-		
-		if(BTattivo == 1){
-			HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-		}
-		
-		
+	halfPackets = paccTot/2;
+	
+	/* Questa funzione programma la seconda meta' del file update, mantenendo il protocollo app originale. */
+	if(nPacchetto < halfPackets){
+		btUpdateSendOK();
+		return 1;
 	}
 	else{
-		nPacchetto = nPacchetto - (paccTot/2);
-		//operazioni primo pacchetto
-		if(nPacchetto == 0){		
-			//controllo su che pezzo di flash sono
-			address = *(u32*)0x08008000;
-			if(address == 0x11111111){
-
+		localPacket = nPacchetto - halfPackets;
+		if(localPacket == 0 || appReady == 0){
+			address = *(volatile u32*)BT_UPDATE_APP1_MARKER_ADDR;
+			if(address == BT_UPDATE_ACTIVE_MARKER){
 				app = 1;
 			}
 			else{
-
-				app = 0;		
+				app = 0;
 			}
-			
-			//pacchetto[2+i] + pacchetto[3+i]*256 + pacchetto[4+i]*65536 + pacchetto[5+i]*16777216;
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-				FLASH_WaitForLastOperation(1000);			
-			}
-			
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-			}
-			
+			appReady = 1;
+			sprintf(uart,"BT update target slot base: 0x%08X\n", (unsigned int)(BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app)));
+			inviaDebug(uart);
+		}
+		baseAddress = BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app);
+		
+		if(btUpdateProgram72Verified(baseAddress,localPacket,inBuf) == 0){
+			btUpdateSendERR();
+			updateAttivo = 0;
+			emergenza = 3;
+			return 0;
 		}
 		
-		else if(nPacchetto != 0 && nPacchetto != ((paccTot/2)-1)){
-			//scrivo il pacchetto
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 72*nPacchetto + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);	
-				FLASH_WaitForLastOperation(1000);				
+		if(localPacket == (halfPackets-1)){
+			if(btUpdateProgramWordVerified(BT_UPDATE_APP3_MARKER_ADDR,BT_UPDATE_APP_VALID_MARKER) == 0){
+				inviaDebug("BT update marker verify failed app3\n");
+				btUpdateSendERR();
+				updateAttivo = 0;
+				emergenza = 3;
+				return 0;
 			}
-			
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-			}
-			HAL_UART_Transmit(&huart1,&OK[0],4,1000);
-			
-		}
-		else {
-			//scrivo l'ultimo pacchetto
-			for(i=0;i<18;i++){
-				progVar = inBuf[4*i] + inBuf[4*i+1]*256 + inBuf[4*i+2]*65536 + inBuf[4*i+3]*16777216;
-				address = 0x08008200 + 229376*app + 72*nPacchetto + 4*i;
-				HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-			FLASH_WaitForLastOperation(1000);				
-			}
-			
-			progVar = 0x77777777;
-			address = 0x08040000;
-			HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-			FLASH_WaitForLastOperation(1000);	
-			
-			//mando OK
-			if(BTattivo == 1){
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-			}
-			
-			
+			inviaDebug("BT update second image half programmed and verified\n");
+			btUpdateSendOK();
 			HAL_Delay(1000);
 			HAL_TIM_Base_Stop(&htim4);
-			
-			
-			
+			return 1;
 		}
-
-	}
 		
+		btUpdateSendOK();
+		return 1;
+	}
 }
+
 
 void formattaFlashInterna(void){
 	u32 address,address3;

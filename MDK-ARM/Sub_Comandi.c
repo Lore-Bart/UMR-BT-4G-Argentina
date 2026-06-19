@@ -2,6 +2,7 @@
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
 #include "string.h"
+#include "stdio.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -101,6 +102,9 @@ extern uint8_t MeasActive;
 
 //pacchetti totali
 extern u16 paccTot;
+extern u32 updatePacketBTsize;
+extern u8 updatePacketReady;
+extern u8 programmaPacchetto;
 
 //variabili misurandi
 extern u32 V[3]; //tensioni
@@ -371,8 +375,13 @@ void eseguiComandoBT(uint8_t *messaggio){
 				
 			case 0x13: //update
 				paccTot = array2u16(&messaggio[pwOff+2]);
+				updatePacketBTsize = 0;
+				updatePacketReady = 0;
+				programmaPacchetto = 0;
+				sprintf(uart,"BT update start, packets: %u\n", (unsigned int)paccTot);
+				inviaDebug(uart);
 				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
-				updateAttivo = 2;
+				updateAttivo = 15;
 				break;
 				
 			case 0x14: //ora legale;
