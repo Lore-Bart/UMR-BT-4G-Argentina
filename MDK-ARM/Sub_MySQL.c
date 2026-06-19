@@ -33,6 +33,22 @@ u8 aggiungiIntrusioneDBflag = 0;
 u8 aggiungiRebootDBflag = 0;
 u8 aggiungiDebugDBflag = 0;
 
+void clearDatabaseRequests(void){
+	aggiungiTensioniDBflag = 0;
+	aggiungiMeasProfileDBflag = 0;
+	aggiungiLoadProfileDBflag = 0;
+	aggiungiGuastoDBflag = 0;
+	aggiungiUnderDBflag = 0;
+	aggiungiOverDBflag = 0;
+	aggiungiNeutroStartDBflag = 0;
+	aggiungiNeutroEndDBflag = 0;
+	aggiungiIntrusioneDBflag = 0;
+	aggiungiRebootDBflag = 0;
+	aggiungiDebugDBflag = 0;
+}
+
+
+
 //internet
 extern u8 statoInternet;
 extern u8 APN[50]; //vecchio 30

@@ -363,7 +363,7 @@ int mymain(void){
 		//connessione internet
 		if(stato4G > 2 && statoModulo == 0 && statoInternet == 1 && avvioConcluso == 1){
 			//statoModulo++; inviaDebug("statoModulo++\n");
-			HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r\r",12,100);
+			HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r",12,100);
 			HAL_Delay(1000);
 			//statoModulo--; inviaDebug("statoModulo--\n");
 			connettiInternet();
@@ -471,9 +471,15 @@ int mymain(void){
 			}
 		}
 		
-		if(disattivaInternetFlag == 1){
+		if(disattivaInternetFlag == 1 && statoModulo == 0){
 			disattivaInternetFlag = 0;
-			HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r\r",12,100);			
+			/* Chiusura best-effort dello stack IP: non occupo statoModulo,
+			 * cosi' eventuali risposte tardive ERROR/+NETCLOSE non bloccano
+			 * una riattivazione successiva con il comando 0x53.
+			 */
+			HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPTERM\r",12,100);			
+			HAL_Delay(200);
+			HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r",12,100);			
 		}
 		
 

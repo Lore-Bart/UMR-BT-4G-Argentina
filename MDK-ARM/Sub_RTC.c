@@ -56,7 +56,7 @@ extern u8 antifurtoAttivo;
 u8 inibizione = 0;
 
 //ora legale universale
-u8 DSTon = 1;
+u8 DSTon = 0;
 u8 DSThourStart = 0;
 u8 DSTdayStart = 0;
 u8 DSTweekStart = 0;
@@ -394,7 +394,7 @@ void RTC_WKUP_IRQHandler(void)
 		}
 	}
 	
-	//modalità low power
+	//modalit low power
 	if(avvioConcluso == 1 && alimentatore == 0 && lowpower == 0){
 		lowpower = 1;
 		////disabilito solo il secondo ADE
@@ -623,8 +623,34 @@ void RTCpolling(void){
 			cancellaLoad = 0;
 			cancellaMeas = 0;
 		}
-		//scrittura NFC
-		if(sizeNFCafter != 0 && sizeNFC == 0){
+		/*
+		 * Gestione NFC.
+		 * La cancellazione deve avere precedenza sulle normali scritture in coda:
+		 * se si scrivesse prima un vecchio evento pendente, questo potrebbe
+		 * ricomparire subito dopo il comando di erase.
+		 */
+		if(formatGuasti != 0){
+			formatGuasti--;
+			beforeOffset = 4096 + (formatGuasti)*16;
+			u162array(&offset[0],beforeOffset);
+			resetWD();
+			writeNFC32(&formattatore[0],16,&offset[0]);
+			if(formatGuasti == 0){
+				if(inibitGuasto == 255){ inibitGuasto = 0; }
+				inibitGuastoSMS = 0;
+			}
+		}
+		else if(formatNeutro != 0){
+			formatNeutro--;	
+			beforeOffset = 64 + (formatNeutro)*16;
+			u162array(&offset[0],beforeOffset);
+			resetWD();
+			writeNFC32(&formattatore[0],16,&offset[0]);
+			if(formatNeutro == 0){
+				inibitN = 0;
+			}
+		}
+		else if(sizeNFCafter != 0 && sizeNFC == 0){
 			resetWD();
 			writeNFC32(&arrayNFCafter[0],sizeNFCafter,&offsetNFCafter[0]);
 			sizeNFCafter = 0;
@@ -633,20 +659,6 @@ void RTCpolling(void){
 			resetWD();
 			writeNFC32(&arrayNFC[0],sizeNFC,&offsetNFC[0]);
 			sizeNFC = 0;			
-		}
-		
-		//cancellazione NFC
-		if(formatGuasti != 0){
-			formatGuasti--;
-			beforeOffset = 4096 + (formatGuasti)*16;
-			u162array(&offset[0],beforeOffset);
-			writeNFC32(&formattatore[0],16,&offset[0]);	
-		}
-		if(formatNeutro != 0 && formatGuasti == 0){
-			formatNeutro--;	
-			beforeOffset = 64 + (formatNeutro)*16;
-			u162array(&offset[0],beforeOffset);
-			writeNFC32(&formattatore[0],16,&offset[0]);		
 		}
 
 		
@@ -1254,7 +1266,7 @@ uint32_t timetoposix(RTC_DateTypeDef data, RTC_TimeTypeDef ora){
 	return(secondi);
 }
 
-//calcolo se un anno è bisestile
+//calcolo se un anno  bisestile
 u8 bisestile(u8 anno){
 
 	u8 bis = 0;
@@ -1569,6 +1581,14 @@ RTC_DateTypeDef posix2date(u32 A){
 u32 isDST(u32 A){
 	
 	struct dstTime dstLocal;
+	
+	/* Versione LITE Argentina: nessuna ora legale.
+	 * Se DSTon e' 0 non applico alcuna correzione.
+	 */
+	if(DSTon == 0){
+		DST = 0;
+		return A;
+	}
 	
 	dstLocal = estremiDSTposix(A);
 	

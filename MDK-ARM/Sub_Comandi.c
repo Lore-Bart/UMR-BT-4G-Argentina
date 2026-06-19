@@ -13,6 +13,7 @@ extern RTC_DateTypeDef sDate;
 extern SPI_HandleTypeDef hspi4;
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart6;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern TIM_HandleTypeDef htim3;
@@ -39,6 +40,8 @@ extern u8 batteryLevel;
 extern u16 sogliaCorrenteA;
 extern u16 sogliaCorrenteB;
 extern u16 sogliaNeutro;
+extern u16 underVoltageTH;
+extern u16 overVoltageTH;
 
 //ora legale universale
 extern u8 DSTon;
@@ -115,12 +118,14 @@ extern u8 inizializzaAntifurto;
 
 //internet
 extern u8 statoInternet;
-extern u8 APN[30];
-extern u8 mySQL[50];
-extern u8 userSQL[20];
-extern u8 pwSQL[20];
+extern u8 APN[50];
+extern u8 mySQL[100];
+extern u8 userSQL[30];
+extern u8 pwSQL[30];
 
 extern u8 disattivaInternetFlag;
+extern u8 statoModulo;
+extern u8 timerModuloESC;
 
 
 extern long timerBT;
@@ -178,7 +183,7 @@ void eseguiComandoBT(uint8_t *messaggio){
 		return;	
 	}
 	
-	//tengo attivo il BT fisso se è attiva la disattivazione automatica. Al riavvio holdDisBT tornerà 1
+	//tengo attivo il BT fisso se  attiva la disattivazione automatica. Al riavvio holdDisBT torner 1
 	if(holdDisBT == 1 && BTattivo == 1){
 		holdDisBT = 0;
 	}
@@ -435,7 +440,12 @@ void eseguiComandoBT(uint8_t *messaggio){
 			case 0x19: //formatta
 				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 						
-				__disable_irq();
+				/*
+				 * Non disabilitare globalmente gli interrupt durante la formattazione.
+				 * Le funzioni di erase usano I2C/Flash bloccanti e i timeout HAL
+				 * dipendono dal tick di sistema: con IRQ disabilitati un problema sul bus
+				 * potrebbe lasciare il dispositivo bloccato.
+				 */
 				switch(messaggio[pwOff+2]-48){
 						case 0:
 							formattaLoad();
@@ -453,7 +463,6 @@ void eseguiComandoBT(uint8_t *messaggio){
 							formattaTampering();
 							break;
 					}			
-				__enable_irq();
 				break;
 					
 			case 0x1a: //imposta coordinate GPS
@@ -594,18 +603,62 @@ void eseguiComandoBT(uint8_t *messaggio){
 				break;
 						
 					
-			case 0x53: //attiva internet
-				
-				statoInternet = messaggio[pwOff+2]-48;
-				addressFram[0] = 2;
-				addressFram[1] = 0;			
-				saveArrayFram(&statoInternet,&addressFram[0],1);
-			
-				if(statoInternet == 0){
+			case 0x53: //abilita/disabilita internet completo
+				/*
+				 * '0' = internet disabilitato:
+				 *       salva statoInternet=0 in FRAM, cancella le richieste DB pendenti
+				 *       e chiude lo stack IP in modo best-effort.
+				 * '1' = internet abilitato:
+				 *       salva statoInternet=1 in FRAM e, se il SIM7600 e' libero,
+				 *       avvia subito una nuova connessione.
+				 */
+				if(messaggio[pwOff+2] == '0'){
+					statoInternet = 0;
 					disattivaInternetFlag = 1;
+					clearDatabaseRequests();
+					
+					addressFram[0] = 2;
+					addressFram[1] = 0;			
+					saveArrayFram(&statoInternet,&addressFram[0],1);
+					
+					/* Se il modulo e' libero chiudo subito HTTP/NET.
+					 * Non incremento statoModulo: eventuali ERROR/+NETCLOSE tardivi
+					 * non devono bloccare una riattivazione successiva.
+					 */
+					if(statoModulo == 0){
+						HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPTERM\r",12,1000);
+						HAL_Delay(200);
+						HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r",12,1000);
+						disattivaInternetFlag = 0;
+					}
+					
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				}
-			
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				else if(messaggio[pwOff+2] == '1'){
+					statoInternet = 1;
+					disattivaInternetFlag = 0;
+					
+					addressFram[0] = 2;
+					addressFram[1] = 0;			
+					saveArrayFram(&statoInternet,&addressFram[0],1);
+					
+					/* Se statoModulo e' rimasto bloccato da una risposta persa,
+					 * dopo il timeout lo libero per permettere la riattivazione manuale.
+					 */
+					if(statoModulo != 0 && timerModuloESC == 0){
+						inviaDebug("recupero statoModulo per riavvio internet\n");
+						statoModulo = 0;
+					}
+					
+					if(statoModulo == 0){
+						connettiInternet();
+					}
+					
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				}
+				else{
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+				}
 				break;
 					
 			case 0x54: //lettura impostazioni
@@ -635,14 +688,35 @@ void eseguiComandoBT(uint8_t *messaggio){
 					HAL_UART_Transmit(&huart2,uart,2,100);
 				}
 				break;
-			case 0x55:
+			case 0x55: //visualizza soglie
+				/*
+				 * Formato risposta BT:
+				 * [0..1]  soglia corrente linea A [A]
+				 * [2..3]  soglia corrente linea B [A]
+				 * [4..5]  soglia squilibrio/neutro [V]
+				 * [6..7]  soglia undervoltage [V]
+				 * [8..9]  soglia overvoltage [V]
+				 * [10..11] CR LF
+				 */
 				u162array(&data[0],sogliaCorrenteA);
 				u162array(&data[2],sogliaCorrenteB);
-				u162array(&data[4],sogliaNeutro);
-				data[6] = 0x0d;
-				data[7] = 0x0a;
-				HAL_UART_Transmit(&huart2,data,8,100);
+				u162array(&data[4],sogliaNeutro/100);
+				u162array(&data[6],underVoltageTH/100);
+				u162array(&data[8],overVoltageTH/100);
+				data[10] = 0x0d;
+				data[11] = 0x0a;
+				HAL_UART_Transmit(&huart2,data,12,100);
 				inviaDebug("comando 0x55\n");
+				break;
+			
+			case 0x57: //imposta soglia undervoltage
+				modificaSogliaUnderVoltage(array2u16(&messaggio[pwOff+2]));
+				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				break;
+			
+			case 0x58: //imposta soglia overvoltage
+				modificaSogliaOverVoltage(array2u16(&messaggio[pwOff+2]));
+				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				break;
 						
 			case 0xff: //controllo password

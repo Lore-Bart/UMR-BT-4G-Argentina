@@ -362,9 +362,9 @@ indirizzo[0] = 1;
 indirizzo[1] = 0;
 saveArrayFram(&formattatore[0],&indirizzo[0],256); //formatto la seconda pagina della FRAM
 saveArrayFram(&identificativo[0],&indirizzo[0],16); //imposto l'identificativo di default
-data[0] = 1;
+data[0] = 0;
 indirizzo[1] = 68;
-saveArrayFram(&data[0],&indirizzo[0],1); //metto DST ad uno di default
+saveArrayFram(&data[0],&indirizzo[0],1); //Argentina: DST disabilitato di default
 
 indirizzo[0] = 2; //formatto la terza pagina della FRAM
 indirizzo[1] = 0;
@@ -550,7 +550,7 @@ void avvioSistema(void){
 		//ora legale
 		indirizzo[1] = 68;
 		ReadArrayFram(&data[0],&indirizzo[0],9);
-		//DSTon = data[0];
+		DSTon = 0; //Argentina: nessuna ora legale
 		DSThourStart = data[1]; DSTdayStart = data[2]; DSTweekStart = data[3]; DSTmonthStart = data[4];
 		DSThourStop = data[5]; DSTdayStop = data[6]; DSTweekStop = data[7]; DSTmonthStop = data[8];
 		//coordinate

@@ -44,6 +44,7 @@ u8 segnaleGSM = 0;
 
 //stato del modulo
 u8 statoModulo = 0;
+extern u8 timerModuloESC;
 
 //numeri
 extern u8 numeroAllarmi[20];
@@ -627,8 +628,9 @@ void aggiornaOrarioNTP(void){
 	
 	invia4G("AT+CNTP=\x22");
 	invia4G(addressNTP);
-	//invia4G("193.204.114.232");
-	invia4G("\x22,4\r");
+	// Argentina: UTC-3. Il parametro CNTP del SIM7600 e' in quarti d'ora.
+	// -12 = -3 ore. Evita correzioni da ora legale, non usata in Argentina.
+	invia4G("\x22,-12\r");
 	delay(100);
 	invia4G("AT+CNTP\r");
 
@@ -747,7 +749,7 @@ void visualizzaVunder(u8* messaggio){
 		return;
 	}
 	
-	sprintf(uart,"soglia undervoltage : %dV",underVoltageTH/100);
+	sprintf(uart,"under-voltage threshold: %d V",underVoltageTH/100);
 	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
 	
 }
@@ -777,7 +779,7 @@ void visualizzaVover(u8* messaggio){
 		return;
 	}
 	
-	sprintf(uart,"soglia overvoltage : %dV",overVoltageTH/100);
+	sprintf(uart,"over-voltage threshold: %d V",overVoltageTH/100);
 	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
 	
 }
@@ -976,7 +978,7 @@ void modificaVunder(u8* messaggio){
 	addressFram[0] = 2;
 	addressFram[1] = 250;
 	saveU16fram(underVoltageTH,&addressFram[0]);
-	sprintf(uart,"soglia undervoltage : %dV",underVoltageTH/100);
+	sprintf(uart,"under-voltage threshold: %d V",underVoltageTH/100);
 	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
 			
 }
@@ -1105,7 +1107,7 @@ void modificaVover(u8* messaggio){
 	addressFram[0] = 2;
 	addressFram[1] = 252;
 	saveU16fram(overVoltageTH,&addressFram[0]);
-	sprintf(uart,"soglia overvoltage : %dV",overVoltageTH/100);
+	sprintf(uart,"over-voltage threshold: %d V",overVoltageTH/100);
 	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
 			
 }
@@ -1361,6 +1363,7 @@ void disattivaInternet(u8* messaggio){
 	addressFram[0] = 2;
 	addressFram[1] = 0;			
 	saveArrayFram(&statoInternet,&addressFram[0],1);
+	clearDatabaseRequests();
 	disattivaInternetFlag = 1;	
 	
 }
@@ -1398,10 +1401,19 @@ void restartInternet(u8* messaggio){
 	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
 	
 	statoInternet = 1;
+	disattivaInternetFlag = 0;
 	addressFram[0] = 2;
 	addressFram[1] = 0;			
 	saveArrayFram(&statoInternet,&addressFram[0],1);
-	disattivaInternetFlag = 1;	
+	
+	if(statoModulo != 0 && timerModuloESC == 0){
+		inviaDebug("recupero statoModulo per riavvio internet\n");
+		statoModulo = 0;
+	}
+	
+	if(statoModulo == 0){
+		connettiInternet();
+	}
 	
 }
 

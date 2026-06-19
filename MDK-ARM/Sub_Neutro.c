@@ -273,6 +273,34 @@ void modificaSogliaN(u16 value){
 }
 
 
+void modificaSogliaUnderVoltage(u16 value){
+	u8 addressFram[2] = {2,250};
+	
+	/* Accetta sia volt interi (es. 190) sia centivolt interni (es. 19000).
+	 * 0 mantiene il significato di soglia disabilitata.
+	 */
+	if(value > 0 && value < 600){
+		value = value * 100;
+	}
+	underVoltageTH = value;
+	saveU16fram(underVoltageTH,&addressFram[0]);
+}
+
+
+void modificaSogliaOverVoltage(u16 value){
+	u8 addressFram[2] = {2,252};
+	
+	/* Accetta sia volt interi (es. 250) sia centivolt interni (es. 25000).
+	 * 0 mantiene il significato di soglia disabilitata.
+	 */
+	if(value > 0 && value < 600){
+		value = value * 100;
+	}
+	overVoltageTH = value;
+	saveU16fram(overVoltageTH,&addressFram[0]);
+}
+
+
 void estrazioneNeutro(void){
 	int i = 0;
 	u16 beforeFram;
@@ -321,13 +349,18 @@ void estrazioneNeutro(void){
 
 //cancella eventi neutro
 void formattaNeutro(void){
-	u16 beforeOffset = 4096;
 	int i = 0;
 	u8 addressFram[2] = {1,16};
 	u8 formattatore[256];
-	u8 offset[2];
 	
-	inibitN = 240;
+	/*
+	 * La cancellazione degli eventi neutro/squilibrio tensioni coinvolge FRAM
+	 * e due blocchi NFC da 16 byte per evento. Blocchiamo il controllo neutro
+	 * e scartiamo eventuali scritture NFC pendenti, per evitare che un evento
+	 * vecchio venga riscritto dopo l'erase.
+	 */
+	inibitN = 255;
+	clearNFCpending();
 	
 	eventoNeutro = 0;
 	eventiNeutro = 0;
@@ -344,10 +377,12 @@ void formattaNeutro(void){
 	addressFram[0] = 8;	addressFram[1] = 0;
 	while(i<7){
 		saveArrayFram(&formattatore[0],&addressFram[0],256);
+		resetWD();
 		i++;
 		addressFram[0]++;
 	}
 	
+	/* NFC: 100 eventi da 32 byte = 200 blocchi da 16 byte. */
 	formatNeutro = 200;
 
 }
@@ -393,8 +428,8 @@ void checkUnderVoltage(void){
 		Vlocal[1] = V[1];  Vlocal[1] /= 100;
 		Vlocal[2] = V[2];  Vlocal[2] /= 100;
 		
-		sprintf(sms,"Undervoltage\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
-		copiaArray(&sms[21],&identificativo[0],16);
+		sprintf(sms,"Under-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
+		copiaArray(&sms[29],&identificativo[0],16);
 		//HAL_UART_Transmit(&huart1,sms,strlen(sms),100);
 		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
 		aggiungiUnderDB(1,&V[0]);
@@ -425,22 +460,22 @@ void checkOverVoltage(void){
 		return;
 	}
 	
-	if((V[1] >= overVoltageTH || V[1] >= overVoltageTH || V[1] >= overVoltageTH) && overVoltageEvent == 0){
+	if((V[0] >= overVoltageTH || V[1] >= overVoltageTH || V[2] >= overVoltageTH) && overVoltageEvent == 0){
 		//salva evento
 		
 		Vlocal[0] = V[0];  Vlocal[0] /= 100;
 		Vlocal[1] = V[1];  Vlocal[1] /= 100;
 		Vlocal[2] = V[2];  Vlocal[2] /= 100;
 		
-		sprintf(sms,"Overvoltage\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
-		copiaArray(&sms[20],&identificativo[0],16);
+		sprintf(sms,"Over-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
+		copiaArray(&sms[28],&identificativo[0],16);
 		//HAL_UART_Transmit(&huart1,sms,strlen(sms),100);
 		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
 		aggiungiOverDB(1,&V[0]);
 		overVoltageEvent = 1;
 		delay = 60;
 	}
-	else if((V[1] < overVoltageTH && V[1] < overVoltageTH && V[1] < overVoltageTH) && overVoltageEvent == 1){
+	else if((V[0] < overVoltageTH && V[1] < overVoltageTH && V[2] < overVoltageTH) && overVoltageEvent == 1){
 		overVoltageEvent = 0;
 	}
 }

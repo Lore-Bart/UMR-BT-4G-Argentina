@@ -442,6 +442,16 @@ void formattaGuasti(void){
 	int i = 0;
 	u8 formattatore[256];
 
+	/*
+	 * La cancellazione dei guasti coinvolge sia FRAM sia area NDEF NFC.
+	 * Durante l'operazione blocchiamo la generazione di nuovi eventi e
+	 * scartiamo eventuali scritture NFC ancora in coda, altrimenti un evento
+	 * vecchio potrebbe essere riscritto dopo l'azzeramento.
+	 */
+	inibitGuasto = 255;
+	inibitGuastoSMS = 255;
+	clearNFCpending();
+
 	while(i<256){ //genero array per formattare FRAM
 		formattatore[i] = 0;
 		i++;
@@ -454,10 +464,12 @@ void formattaGuasti(void){
 	addressFram[0] = 24;	addressFram[1] = 0;
 	while(i<7){
 		saveArrayFram(&formattatore[0],&addressFram[0],256);
+		resetWD();
 		i++;
 		addressFram[0]++;
 	}
 	
+	/* NFC: 100 eventi da 16 byte, cancellati progressivamente in RTCpolling. */
 	formatGuasti = 100;
 	
 }

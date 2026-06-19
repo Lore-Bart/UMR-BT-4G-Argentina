@@ -38,6 +38,9 @@ extern u8 offsetNFCafter[2];
 
 
 void writeNFC(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	if(size > 16){
+		size = 16;
+	}
 	copiaArray(&arrayNFC[0],&inBuf[0],size);
 	copiaArray(&offsetNFC[0],&offset[0],2);
 	sizeNFC = size;
@@ -45,10 +48,18 @@ void writeNFC(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 }
 
 void writeNFCafter(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	if(size > 16){
+		size = 16;
+	}
 	copiaArray(&arrayNFCafter[0],&inBuf[0],size);
 	copiaArray(&offsetNFCafter[0],&offset[0],2);
 	sizeNFCafter = size;
 
+}
+
+void clearNFCpending(void){
+	sizeNFC = 0;
+	sizeNFCafter = 0;
 }
 
 //scrittura su TAG NFC
@@ -65,8 +76,14 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
 	delay(10);
 	
-	backupIn[0] = inBuf[0]; backupIn[1] = inBuf[1]; backupIn[2] = inBuf[2]; backupIn[3] = inBuf[3]; backupIn[4] = inBuf[4]; backupIn[5] = inBuf[5];  backupIn[6] = inBuf[6]; backupIn[7] = inBuf[7];
-	backupIn[8] = inBuf[8]; backupIn[9] = inBuf[9]; backupIn[10] = inBuf[10]; backupIn[11] = inBuf[11]; backupIn[12] = inBuf[12];  backupIn[13] = inBuf[13]; backupIn[14] = inBuf[14]; backupIn[15] = inBuf[15];
+	if(size > 16){
+		size = 16;
+	}
+	while(a < size){
+		backupIn[a] = inBuf[a];
+		a++;
+	}
+	a = 0;
 
 	backupOff[0] = offset[0]; backupOff[1] = offset[1];
 	
@@ -151,7 +168,7 @@ void initNFC(){
 	
 	uint8_t kill = 0x52;
 	uint32_t ciao = 0xfff;
-	u8 *outBuf1;
+	u8 outBuf1[5] = {0,0,0,0,0};
 	
 	M24SR_ComputeCrc(&command[0],14);
 	
@@ -207,8 +224,7 @@ void initNFC5(){
 	
 	uint8_t kill = 0x52;
 	uint32_t ciao = 0xfff;
-	u8 *outBuf1;
-	
+		
 	M24SR_ComputeCrc(&command[0],14);
 	
 		
