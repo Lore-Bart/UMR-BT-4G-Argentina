@@ -66,6 +66,13 @@ u8 underVoltageEvent = 0;
 u16 overVoltageTH = 0;
 u8 overVoltageEvent = 0;
 
+static u8 validNeutroTimestamp(u32 timestamp)
+{
+	/* 0xFFFFFFFF viene visualizzato come 07/02/2106: non e' un evento valido. */
+	if(timestamp == 0UL) return 0;
+	if(timestamp == 0xFFFFFFFFUL) return 0;
+	return 1;
+}
 
 
 void afterNeutro(void){
@@ -315,7 +322,7 @@ void estrazioneNeutro(void){
 		u162array(&addressFram[0],beforeFram);
 		ReadArrayFram(&data[0],&addressFram[0],4);
 		local = array2u32(&data[0]);
-		if(local != 0){
+		if(validNeutroTimestamp(local)){
 			contatore++;
 		}
 		i++;
@@ -336,7 +343,8 @@ void estrazioneNeutro(void){
 		u162array(&addressFram[0],beforeFram);
 		ReadArrayFram(&data[0],&addressFram[0],30);
 		local = array2u32(&data[0]);
-		if(local != 0 && BTattivo == 1){
+		if(validNeutroTimestamp(local) && BTattivo == 1){
+			data[30] = 0x0d;	data[31] = 0x0a;
 			HAL_UART_Transmit(&huart2,&data[0],32,1000);
 			delay(10);
 			resetWD();
@@ -387,6 +395,7 @@ void formattaNeutro(void){
 	 * Cancellazione rapida progressiva: 14 chunk max da 240 byte.
 	 */
 	formatNeutro = 14;
+	inviaDebug((u8*)"erase neutral/voltage imbalance events started\n");
 
 }
 
@@ -394,13 +403,38 @@ void formattaNeutro(void){
 void ultimoNeutro(u8 *outBuf){
 	u8 addressFram[2];
 	u16 beforeAddress;
+	u8 data[32];
+	u32 timestamp;
+	int i;
+	int j;
+	int found = 0;
 	
-	
-	
-	beforeAddress = 2048 + (eventiNeutro-1)*32;
-	u162array(&addressFram[0],beforeAddress);
-	ReadArrayFram(&outBuf[0],&addressFram[0],30);
+	for(j=0;j<32;j++){
+		outBuf[j] = 0;
+	}
 	outBuf[30] = 0x0d;	outBuf[31] = 0x0a;
+	
+	/* Non usare direttamente eventiNeutro-1: dopo erase/memoria sporca
+	 * puo' puntare a 0xFFFFFFFF, cioe' 07/02/2106.
+	 */
+	for(i=0;i<100;i++){
+		beforeAddress = 2048 + 32*i;
+		u162array(&addressFram[0],beforeAddress);
+		ReadArrayFram(&data[0],&addressFram[0],30);
+		timestamp = array2u32(&data[0]);
+		if(validNeutroTimestamp(timestamp)){
+			copiaArray(&outBuf[0],&data[0],30);
+			outBuf[30] = 0x0d;	outBuf[31] = 0x0a;
+			found = 1;
+		}
+	}
+	
+	if(found == 0){
+		for(j=0;j<30;j++){
+			outBuf[j] = 0;
+		}
+		outBuf[30] = 0x0d;	outBuf[31] = 0x0a;
+	}
 		
 }
 

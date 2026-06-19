@@ -620,11 +620,17 @@ void RTCpolling(void){
 				cancellaLoad--;
 				blockErase(cancellaLoad);
 				inibizione = 2;
+				if(cancellaLoad == 0){
+					inviaDebug((u8*)"erase load profiles completed\n");
+				}
 			}
 			if(cancellaMeas > 0){
 				cancellaMeas--;
 				blockErase(cancellaMeas+32);
 				inibizione = 2;
+				if(cancellaMeas == 0){
+					inviaDebug((u8*)"erase measurand profiles completed\n");
+				}
 			}			
 		}
 		else if((cancellaLoad + cancellaMeas) > 31){
@@ -657,6 +663,7 @@ void RTCpolling(void){
 			if(formatGuasti == 0){
 				if(inibitGuasto == 255){ inibitGuasto = 0; }
 				inibitGuastoSMS = 0;
+				inviaDebug((u8*)"erase overcurrent/fault events NFC completed\n");
 			}
 		}
 		else if(formatNeutro != 0){
@@ -676,6 +683,7 @@ void RTCpolling(void){
 			}
 			if(formatNeutro == 0){
 				inibitN = 0;
+				inviaDebug((u8*)"erase neutral/voltage imbalance events NFC completed\n");
 			}
 		}
 		else if(sizeNFCafter != 0 && sizeNFC == 0){

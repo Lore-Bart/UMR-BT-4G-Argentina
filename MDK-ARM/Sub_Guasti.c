@@ -76,6 +76,18 @@ extern u8 sonopassato;
 
 extern double latitudineD,longitudineD;
 
+static u8 validEventTimestamp(u32 timestamp)
+{
+	/*
+	 * 0xFFFFFFFF corrisponde al 07/02/2106: e' il classico valore
+	 * di EEPROM/FRAM non realmente inizializzata o non cancellata.
+	 * Non deve essere conteggiato ne' visualizzato come evento.
+	 */
+	if(timestamp == 0UL) return 0;
+	if(timestamp == 0xFFFFFFFFUL) return 0;
+	return 1;
+}
+
 long contaguasto = 0;
 
 long contaGuasto = 0;
@@ -402,17 +414,15 @@ void downloadGuasti(void){
 	u8 addressFram[2];
 	u16 contatore = 0;
 	u8 array[16];
-	u32 stampella;
-	
+	u32 timestamp;
 	
 	while(i<100){		
 		beforeFram = 6144 + 16*i;
 		u162array(&addressFram[0],beforeFram);
 		ReadArrayFram(&array[0],&addressFram[0],16);
+		timestamp = array2u32(&array[0]);
 		
-		
-		
-		if(array2u32(&array[0]) != 0){
+		if(validEventTimestamp(timestamp)){
 			copiaArray(&invio[contatore*16],&array[0],16);
 			contatore++;
 		}		
@@ -474,6 +484,7 @@ void formattaGuasti(void){
 	 * Cancellazione rapida progressiva: 7 chunk max da 240 byte.
 	 */
 	formatGuasti = 7;
+	inviaDebug((u8*)"erase overcurrent/fault events started\n");
 	
 }
 
@@ -482,10 +493,36 @@ void formattaGuasti(void){
 void ultimoGuasto(u8 *outBuf){
 	u8 addressFram[2];
 	u16 beforeFram;
+	u8 array[16];
+	u32 timestamp;
+	int i;
+	int j;
+	int found = 0;
 	
-	beforeFram = 6144 + (guasti-1)*16;	
-	u162array(&addressFram[0],beforeFram); //imposto l'offset all'indirizzo dell'ultimo evento
-	ReadArrayFram(&outBuf[0],&addressFram[0],16);
+	for(j=0;j<16;j++){
+		outBuf[j] = 0;
+	}
+	
+	/* Non usare direttamente guasti-1: dopo cancellazioni o memoria sporca
+	 * puo' puntare a uno slot vuoto/0xFFFFFFFF. Cerchiamo l'ultimo
+	 * evento realmente valido.
+	 */
+	for(i=0;i<100;i++){
+		beforeFram = 6144 + 16*i;
+		u162array(&addressFram[0],beforeFram);
+		ReadArrayFram(&array[0],&addressFram[0],16);
+		timestamp = array2u32(&array[0]);
+		if(validEventTimestamp(timestamp)){
+			copiaArray(&outBuf[0],&array[0],16);
+			found = 1;
+		}
+	}
+	
+	if(found == 0){
+		for(j=0;j<16;j++){
+			outBuf[j] = 0;
+		}
+	}
 }
 
 

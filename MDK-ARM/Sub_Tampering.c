@@ -54,6 +54,14 @@ extern u8 spegniLed;
 u8 antifurtoScattato = 0;
 u16 nIntrusioni = 0;
 
+static u8 validTamperingTimestamp(u32 timestamp)
+{
+	/* 0xFFFFFFFF viene visualizzato come 07/02/2106: non e' un evento valido. */
+	if(timestamp == 0UL) return 0;
+	if(timestamp == 0xFFFFFFFFUL) return 0;
+	return 1;
+}
+
 
 void attivazioneAntifurto(void){
 	u8 addressFram[2] = {1,86};
@@ -241,11 +249,13 @@ u16 addressFramInt;
 int i = 0;
 int contatore = 0;
 u8 array[8];
+u32 timestamp;
 	
 	for(i=0;i<100;i++){ //conteggio eventi		
 		addressFramInt = 1024 + i*8; u162array(&addressFram[0],addressFramInt);
-		ReadArrayFram(&array[0],&addressFram[0],1);
-		if(array[0] != 0){
+		ReadArrayFram(&array[0],&addressFram[0],8);
+		timestamp = array2u32(&array[0]);
+		if(validTamperingTimestamp(timestamp)){
 			contatore++;
 		}	
 	}
@@ -260,7 +270,8 @@ u8 array[8];
 		resetWD();
 		addressFramInt = 1024 + i*8; u162array(&addressFram[0],addressFramInt);
 		ReadArrayFram(&array[0],&addressFram[0],8);
-		if(array[0] != 0 && BTattivo == 1){
+		timestamp = array2u32(&array[0]);
+		if(validTamperingTimestamp(timestamp) && BTattivo == 1){
 			HAL_UART_Transmit(&huart2,&array[0],8,1000);
 		}
 	}
@@ -292,6 +303,7 @@ void formattaTampering(void){
 		i++;
 		addressFram[0]++;
 	}
+	inviaDebug((u8*)"erase tampering events completed\n");
 	
 }
 
