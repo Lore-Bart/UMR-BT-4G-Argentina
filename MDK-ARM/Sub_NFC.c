@@ -4,6 +4,7 @@
 #include "string.h"
 
 #define delayNFC 0x1ffff
+#define NFC_MAX_DIRECT_WRITE_SIZE 240
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -63,21 +64,31 @@ void clearNFCpending(void){
 }
 
 //scrittura su TAG NFC
+static void nfcWaitMs(u32 ms)
+{
+	u32 start = HAL_GetTick();
+	while((u32)(HAL_GetTick() - start) < ms){
+		resetWD();
+		HAL_Delay(5);
+	}
+}
+
+/*
+ * Scrittura diretta su tag NFC.
+ * Per le normali code evento restano validi i blocchi da 16 byte.
+ * Per l'erase rapido usiamo blocchi piu' grandi, fino a 240 byte,
+ * restando sotto il limite del M24SR64-Y.
+ */
 void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
-	u32 time = delayNFC;
-	u8 uart[16];
-	int tempo;
-	uint8_t kill = 0x52;	
-	u8 backupOff[2];
+	uint8_t backupOff[2];
 	int a = 0;
-	u8 backupIn[20];
+	u8 backupIn[NFC_MAX_DIRECT_WRITE_SIZE];
 	
-	tempo = HAL_GetTick();
 	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
 	delay(10);
 	
-	if(size > 16){
-		size = 16;
+	if(size > NFC_MAX_DIRECT_WRITE_SIZE){
+		size = NFC_MAX_DIRECT_WRITE_SIZE;
 	}
 	while(a < size){
 		backupIn[a] = inBuf[a];
@@ -87,12 +98,9 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 
 	backupOff[0] = offset[0]; backupOff[1] = offset[1];
 	
-	
-	
 	initNFC5();
 	writeNFC16(&inBuf[0],size,&offset[0]);
 		
-	
 	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_SET);
 	
 	while(a < size){
@@ -104,12 +112,12 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 }
 
 void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset){
-	uint8_t wrArray[24];
-	u32 time = delayNFC;
+	uint8_t wrArray[NFC_MAX_DIRECT_WRITE_SIZE + 8];
 	u8 outBuf[5] = {0,0,0,0,0};
-	u8 uart[100];
-	uint8_t kill = 0x52;
 	
+	if(size > NFC_MAX_DIRECT_WRITE_SIZE){
+		size = NFC_MAX_DIRECT_WRITE_SIZE;
+	}
 		
 	wrArray[0] = 2; wrArray[1] = 0; wrArray[2] = 0xd6; 
 	wrArray[3] = offset[0]; wrArray[4] = offset[1]; wrArray[5] = size;
@@ -117,11 +125,20 @@ void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 	
 	M24SR_ComputeCrc(&wrArray[0],size+6);
 
-		
-	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&wrArray[0],size+8,10);
-	while(time != 0){time--;}	time = delayNFC;
-	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,10);
-	
+	/*
+	 * Con blocchi grandi il tempo interno di scrittura EEPROM puo' essere
+	 * sensibilmente piu' lungo rispetto ai vecchi 16 byte. Aspettiamo la fine
+	 * del write cycle prima di leggere la risposta, evitando che il bus I2C/NFC
+	 * resti in uno stato ambiguo.
+	 */
+	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&wrArray[0],size+8,200);
+	if(size <= 16){
+		nfcWaitMs(10);
+	}
+	else{
+		nfcWaitMs(95);
+	}
+	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,200);
 	
 }
 

@@ -5,6 +5,13 @@
 
 #define durataAvvio 20
 
+#define NFC_ERASE_CHUNK_SIZE       240U
+#define NFC_ERASE_CHUNKS_PER_RTC   4U
+#define NFC_GUASTI_START_OFFSET    4096U
+#define NFC_GUASTI_TOTAL_SIZE      1600U
+#define NFC_NEUTRO_START_OFFSET    64U
+#define NFC_NEUTRO_TOTAL_SIZE      3200U
+
 extern u8 IDconnesso;
 
 
@@ -517,8 +524,11 @@ void RTCpolling(void){
 		u8 offset[2];
 		u8 addressFlash[3] = {0,0,0}; //per formattazione flash
 	
-		u8 formattatore[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+		u8 formattatore[NFC_ERASE_CHUNK_SIZE] = {0};
 		u8 addressFram[2] = {1,100};
+		u8 nfcEraseStep = 0;
+		u16 eraseIndex = 0;
+		u16 eraseLen = 0;
 		
 		if(currentTime.Seconds == 0 && produzione == 0){
 		sprintf(uart,"minuto: %d\n",currentTime.Minutes);
@@ -630,22 +640,40 @@ void RTCpolling(void){
 		 * ricomparire subito dopo il comando di erase.
 		 */
 		if(formatGuasti != 0){
-			formatGuasti--;
-			beforeOffset = 4096 + (formatGuasti)*16;
-			u162array(&offset[0],beforeOffset);
-			resetWD();
-			writeNFC32(&formattatore[0],16,&offset[0]);
+			nfcEraseStep = 0;
+			while(formatGuasti != 0 && nfcEraseStep < NFC_ERASE_CHUNKS_PER_RTC){
+				formatGuasti--;
+				eraseIndex = formatGuasti;
+				beforeOffset = NFC_GUASTI_START_OFFSET + (eraseIndex * NFC_ERASE_CHUNK_SIZE);
+				eraseLen = NFC_GUASTI_TOTAL_SIZE - (eraseIndex * NFC_ERASE_CHUNK_SIZE);
+				if(eraseLen > NFC_ERASE_CHUNK_SIZE){
+					eraseLen = NFC_ERASE_CHUNK_SIZE;
+				}
+				u162array(&offset[0],beforeOffset);
+				resetWD();
+				writeNFC32(&formattatore[0],(u8)eraseLen,&offset[0]);
+				nfcEraseStep++;
+			}
 			if(formatGuasti == 0){
 				if(inibitGuasto == 255){ inibitGuasto = 0; }
 				inibitGuastoSMS = 0;
 			}
 		}
 		else if(formatNeutro != 0){
-			formatNeutro--;	
-			beforeOffset = 64 + (formatNeutro)*16;
-			u162array(&offset[0],beforeOffset);
-			resetWD();
-			writeNFC32(&formattatore[0],16,&offset[0]);
+			nfcEraseStep = 0;
+			while(formatNeutro != 0 && nfcEraseStep < NFC_ERASE_CHUNKS_PER_RTC){
+				formatNeutro--;
+				eraseIndex = formatNeutro;
+				beforeOffset = NFC_NEUTRO_START_OFFSET + (eraseIndex * NFC_ERASE_CHUNK_SIZE);
+				eraseLen = NFC_NEUTRO_TOTAL_SIZE - (eraseIndex * NFC_ERASE_CHUNK_SIZE);
+				if(eraseLen > NFC_ERASE_CHUNK_SIZE){
+					eraseLen = NFC_ERASE_CHUNK_SIZE;
+				}
+				u162array(&offset[0],beforeOffset);
+				resetWD();
+				writeNFC32(&formattatore[0],(u8)eraseLen,&offset[0]);
+				nfcEraseStep++;
+			}
 			if(formatNeutro == 0){
 				inibitN = 0;
 			}

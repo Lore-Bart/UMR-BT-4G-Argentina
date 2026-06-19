@@ -469,8 +469,11 @@ void formattaGuasti(void){
 		addressFram[0]++;
 	}
 	
-	/* NFC: 100 eventi da 16 byte, cancellati progressivamente in RTCpolling. */
-	formatGuasti = 100;
+	/*
+	 * NFC: 100 eventi da 16 byte = 1600 byte.
+	 * Cancellazione rapida progressiva: 7 chunk max da 240 byte.
+	 */
+	formatGuasti = 7;
 	
 }
 

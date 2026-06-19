@@ -382,8 +382,11 @@ void formattaNeutro(void){
 		addressFram[0]++;
 	}
 	
-	/* NFC: 100 eventi da 32 byte = 200 blocchi da 16 byte. */
-	formatNeutro = 200;
+	/*
+	 * NFC: 100 eventi da 32 byte = 3200 byte.
+	 * Cancellazione rapida progressiva: 14 chunk max da 240 byte.
+	 */
+	formatNeutro = 14;
 
 }
 
