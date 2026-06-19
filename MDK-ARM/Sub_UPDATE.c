@@ -98,6 +98,19 @@ static void btUpdateSendERR(void)
 	}
 }
 
+static void btUpdateRebootAfterFinalOK(void)
+{
+	/* Il protocollo Android non viene modificato: prima viene inviato l'OK finale,
+	   poi si lascia un breve margine alla UART/BT e si forza il reset software. */
+	inviaDebug("BT update final OK sent, software reboot now\n");
+	resetWD();
+	HAL_Delay(500);
+	HAL_FLASH_Lock();
+	__disable_irq();
+	NVIC_SystemReset();
+	while(1){ }
+}
+
 static u8 btUpdateProgram72Verified(u32 baseAddress, u16 packetIndex, u8 *inBuf)
 {
 	int i;
@@ -187,8 +200,7 @@ u8 progPacchetto(u8 *inBuf, u16 nPacchetto, u16 paccTot){
 		btUpdateSendOK();
 		if(nPacchetto == paccTot-1){
 			inviaDebug("BT update completed, reboot requested\n");
-			HAL_Delay(1000);
-			HAL_TIM_Base_Stop(&htim4);
+			btUpdateRebootAfterFinalOK();
 		}
 		return 1;
 	}
@@ -258,8 +270,7 @@ u8 progPacchetto3(u8 *inBuf, u16 nPacchetto, u16 paccTot){
 			}
 			inviaDebug("BT update second image half programmed and verified\n");
 			btUpdateSendOK();
-			HAL_Delay(1000);
-			HAL_TIM_Base_Stop(&htim4);
+			btUpdateRebootAfterFinalOK();
 			return 1;
 		}
 		

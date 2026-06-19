@@ -53,7 +53,7 @@ u8 numeroAllarmi[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 //versione software
-u16 software = 28;
+u16 software = 40;
 u8 XL = 0;	
 
 extern u8 BTattivo;
