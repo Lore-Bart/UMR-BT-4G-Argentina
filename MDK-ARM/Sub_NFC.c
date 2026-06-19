@@ -73,12 +73,63 @@ static void nfcWaitMs(u32 ms)
 	}
 }
 
+
 /*
  * Scrittura diretta su tag NFC.
  * Per le normali code evento restano validi i blocchi da 16 byte.
- * Per l'erase rapido usiamo blocchi piu' grandi, fino a 240 byte,
- * restando sotto il limite del M24SR64-Y.
+ * Per l'erase NFC usiamo blocchi medi e soprattutto verifichiamo il risultato:
+ * prima la vecchia versione dichiarava "completed" anche se il tag non aveva
+ * realmente scritto i dati.
  */
+static u8 writeNFC16Status(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	uint8_t wrArray[NFC_MAX_DIRECT_WRITE_SIZE + 8];
+	u8 outBuf[5] = {0,0,0,0,0};
+	HAL_StatusTypeDef txStatus;
+	HAL_StatusTypeDef rxStatus;
+	
+	if(size > NFC_MAX_DIRECT_WRITE_SIZE){
+		size = NFC_MAX_DIRECT_WRITE_SIZE;
+	}
+	if(size == 0){
+		return 0;
+	}
+		
+	wrArray[0] = 2; wrArray[1] = 0; wrArray[2] = 0xd6; 
+	wrArray[3] = offset[0]; wrArray[4] = offset[1]; wrArray[5] = size;
+	copiaArray(&wrArray[6], &inBuf[0], size);
+	
+	M24SR_ComputeCrc(&wrArray[0],size+6);
+
+	txStatus = HAL_I2C_Master_Transmit(&hi2c1,0xAC,&wrArray[0],size+8,1000);
+	if(txStatus != HAL_OK){
+		return 0;
+	}
+
+	/*
+	 * Per scritture superiori a 16 byte il M24SR64 puo' impiegare piu' tempo.
+	 * Il timeout massimo indicato per scritture lunghe e' dell'ordine di decine
+	 * di ms: teniamo margine e poi leggiamo la risposta APDU.
+	 */
+	if(size <= 16){
+		nfcWaitMs(12);
+	}
+	else{
+		nfcWaitMs(110);
+	}
+
+	rxStatus = HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,1000);
+	if(rxStatus != HAL_OK){
+		return 0;
+	}
+
+	/* Risposta attesa: PCB, SW1=0x90, SW2=0x00, CRC1, CRC2 */
+	if(outBuf[1] == 0x90 && outBuf[2] == 0x00){
+		return 1;
+	}
+
+	return 0;
+}
+
 void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 	uint8_t backupOff[2];
 	int a = 0;
@@ -99,7 +150,7 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 	backupOff[0] = offset[0]; backupOff[1] = offset[1];
 	
 	initNFC5();
-	writeNFC16(&inBuf[0],size,&offset[0]);
+	(void)writeNFC16Status(&inBuf[0],size,&offset[0]);
 		
 	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_SET);
 	
@@ -112,34 +163,60 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset){
 }
 
 void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset){
-	uint8_t wrArray[NFC_MAX_DIRECT_WRITE_SIZE + 8];
-	u8 outBuf[5] = {0,0,0,0,0};
+	(void)writeNFC16Status(inBuf,size,offset);
+}
+
+/*
+ * Scrittura verificata: usata dalla cancellazione NFC.
+ * Dopo la scrittura rilegge il blocco e confronta byte per byte.
+ * Ritorna 1 solo se il tag contiene davvero i dati richiesti.
+ */
+u8 writeNFC32Checked(uint8_t *inBuf, uint8_t size, uint8_t *offset){
+	uint8_t backupOff[2];
+	int a = 0;
+	u8 backupIn[NFC_MAX_DIRECT_WRITE_SIZE];
+	u8 verifyBuf[NFC_MAX_DIRECT_WRITE_SIZE];
+	u8 ok = 1;
 	
 	if(size > NFC_MAX_DIRECT_WRITE_SIZE){
 		size = NFC_MAX_DIRECT_WRITE_SIZE;
 	}
-		
-	wrArray[0] = 2; wrArray[1] = 0; wrArray[2] = 0xd6; 
-	wrArray[3] = offset[0]; wrArray[4] = offset[1]; wrArray[5] = size;
-	copiaArray(&wrArray[6], &inBuf[0], size);
-	
-	M24SR_ComputeCrc(&wrArray[0],size+6);
+	if(size == 0){
+		return 0;
+	}
 
-	/*
-	 * Con blocchi grandi il tempo interno di scrittura EEPROM puo' essere
-	 * sensibilmente piu' lungo rispetto ai vecchi 16 byte. Aspettiamo la fine
-	 * del write cycle prima di leggere la risposta, evitando che il bus I2C/NFC
-	 * resti in uno stato ambiguo.
-	 */
-	HAL_I2C_Master_Transmit(&hi2c1,0xAC,&wrArray[0],size+8,200);
-	if(size <= 16){
-		nfcWaitMs(10);
+	while(a < size){
+		backupIn[a] = inBuf[a];
+		a++;
 	}
-	else{
-		nfcWaitMs(95);
+	backupOff[0] = offset[0];
+	backupOff[1] = offset[1];
+
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_RESET);
+	delay(10);
+	initNFC5();
+	ok = writeNFC16Status(&inBuf[0],size,&offset[0]);
+	HAL_GPIO_WritePin(GPIOB,GPIO_PIN_5,GPIO_PIN_SET);
+
+	/* Ripristino parametri prima della lettura di verifica. */
+	offset[0] = backupOff[0];
+	offset[1] = backupOff[1];
+	for(a = 0; a < size; a++){
+		inBuf[a] = backupIn[a];
 	}
-	HAL_I2C_Master_Receive(&hi2c1,0xAC,&outBuf[0],5,200);
-	
+
+	if(ok == 0){
+		return 0;
+	}
+
+	readNFC(&verifyBuf[0],size,&offset[0]);
+	for(a = 0; a < size; a++){
+		if(verifyBuf[a] != backupIn[a]){
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 //lettura da NFC

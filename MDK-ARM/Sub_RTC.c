@@ -5,12 +5,14 @@
 
 #define durataAvvio 20
 
-#define NFC_ERASE_CHUNK_SIZE       240U
-#define NFC_ERASE_CHUNKS_PER_RTC   4U
+#define NFC_ERASE_CHUNK_SIZE       16U
+#define NFC_ERASE_CHUNKS_PER_RTC   16U
 #define NFC_GUASTI_START_OFFSET    4096U
 #define NFC_GUASTI_TOTAL_SIZE      1600U
 #define NFC_NEUTRO_START_OFFSET    64U
 #define NFC_NEUTRO_TOTAL_SIZE      3200U
+#define NFC_GUASTI_ERASE_CHUNKS     (NFC_GUASTI_TOTAL_SIZE / NFC_ERASE_CHUNK_SIZE)
+#define NFC_NEUTRO_ERASE_CHUNKS     (NFC_NEUTRO_TOTAL_SIZE / NFC_ERASE_CHUNK_SIZE)
 
 extern u8 IDconnesso;
 
@@ -529,6 +531,10 @@ void RTCpolling(void){
 		u8 nfcEraseStep = 0;
 		u16 eraseIndex = 0;
 		u16 eraseLen = 0;
+		static u8 nfcGuastiEraseRetry = 0;
+		static u8 nfcNeutroEraseRetry = 0;
+		static u8 nfcGuastiEraseSkipped = 0;
+		static u8 nfcNeutroEraseSkipped = 0;
 		
 		if(currentTime.Seconds == 0 && produzione == 0){
 		sprintf(uart,"minuto: %d\n",currentTime.Minutes);
@@ -648,8 +654,13 @@ void RTCpolling(void){
 		if(formatGuasti != 0){
 			nfcEraseStep = 0;
 			while(formatGuasti != 0 && nfcEraseStep < NFC_ERASE_CHUNKS_PER_RTC){
-				formatGuasti--;
-				eraseIndex = formatGuasti;
+				/*
+				 * Cancellazione dal basso verso l'alto.
+				 * Prima partivamo dall'ultimo blocco: se il blocco finale non era
+				 * scrivibile/verificabile, la routine restava bloccata e non arrivava
+				 * mai ai blocchi iniziali, cioe' quelli che l'app legge per primi.
+				 */
+				eraseIndex = NFC_GUASTI_ERASE_CHUNKS - formatGuasti;
 				beforeOffset = NFC_GUASTI_START_OFFSET + (eraseIndex * NFC_ERASE_CHUNK_SIZE);
 				eraseLen = NFC_GUASTI_TOTAL_SIZE - (eraseIndex * NFC_ERASE_CHUNK_SIZE);
 				if(eraseLen > NFC_ERASE_CHUNK_SIZE){
@@ -657,20 +668,47 @@ void RTCpolling(void){
 				}
 				u162array(&offset[0],beforeOffset);
 				resetWD();
-				writeNFC32(&formattatore[0],(u8)eraseLen,&offset[0]);
-				nfcEraseStep++;
+
+				if(writeNFC32Checked(&formattatore[0],(u8)eraseLen,&offset[0]) != 0){
+					formatGuasti--;
+					nfcGuastiEraseRetry = 0;
+					nfcEraseStep++;
+				}
+				else{
+					nfcGuastiEraseRetry++;
+					sprintf(uart,"erase overcurrent/fault NFC retry %u offset %u\n",nfcGuastiEraseRetry,beforeOffset);
+					inviaDebug(uart);
+					if(nfcGuastiEraseRetry >= 5){
+						sprintf(uart,"erase overcurrent/fault NFC block skipped offset %u\n",beforeOffset);
+						inviaDebug(uart);
+						nfcGuastiEraseRetry = 0;
+						nfcGuastiEraseSkipped = 1;
+						formatGuasti--;
+						nfcEraseStep++;
+					}
+					else{
+						break;
+					}
+				}
 			}
 			if(formatGuasti == 0){
 				if(inibitGuasto == 255){ inibitGuasto = 0; }
 				inibitGuastoSMS = 0;
-				inviaDebug((u8*)"erase overcurrent/fault events NFC completed\n");
+				nfcGuastiEraseRetry = 0;
+				if(nfcGuastiEraseSkipped == 0){
+					inviaDebug((u8*)"erase overcurrent/fault events NFC completed and verified\n");
+				}
+				else{
+					inviaDebug((u8*)"erase overcurrent/fault events NFC completed with skipped blocks\n");
+				}
+				nfcGuastiEraseSkipped = 0;
 			}
 		}
 		else if(formatNeutro != 0){
 			nfcEraseStep = 0;
 			while(formatNeutro != 0 && nfcEraseStep < NFC_ERASE_CHUNKS_PER_RTC){
-				formatNeutro--;
-				eraseIndex = formatNeutro;
+				/* Cancellazione dal basso verso l'alto per evitare blocco sul fondo area. */
+				eraseIndex = NFC_NEUTRO_ERASE_CHUNKS - formatNeutro;
 				beforeOffset = NFC_NEUTRO_START_OFFSET + (eraseIndex * NFC_ERASE_CHUNK_SIZE);
 				eraseLen = NFC_NEUTRO_TOTAL_SIZE - (eraseIndex * NFC_ERASE_CHUNK_SIZE);
 				if(eraseLen > NFC_ERASE_CHUNK_SIZE){
@@ -678,12 +716,39 @@ void RTCpolling(void){
 				}
 				u162array(&offset[0],beforeOffset);
 				resetWD();
-				writeNFC32(&formattatore[0],(u8)eraseLen,&offset[0]);
-				nfcEraseStep++;
+
+				if(writeNFC32Checked(&formattatore[0],(u8)eraseLen,&offset[0]) != 0){
+					formatNeutro--;
+					nfcNeutroEraseRetry = 0;
+					nfcEraseStep++;
+				}
+				else{
+					nfcNeutroEraseRetry++;
+					sprintf(uart,"erase neutral/imbalance NFC retry %u offset %u\n",nfcNeutroEraseRetry,beforeOffset);
+					inviaDebug(uart);
+					if(nfcNeutroEraseRetry >= 5){
+						sprintf(uart,"erase neutral/imbalance NFC block skipped offset %u\n",beforeOffset);
+						inviaDebug(uart);
+						nfcNeutroEraseRetry = 0;
+						nfcNeutroEraseSkipped = 1;
+						formatNeutro--;
+						nfcEraseStep++;
+					}
+					else{
+						break;
+					}
+				}
 			}
 			if(formatNeutro == 0){
 				inibitN = 0;
-				inviaDebug((u8*)"erase neutral/voltage imbalance events NFC completed\n");
+				nfcNeutroEraseRetry = 0;
+				if(nfcNeutroEraseSkipped == 0){
+					inviaDebug((u8*)"erase neutral/voltage imbalance events NFC completed and verified\n");
+				}
+				else{
+					inviaDebug((u8*)"erase neutral/voltage imbalance events NFC completed with skipped blocks\n");
+				}
+				nfcNeutroEraseSkipped = 0;
 			}
 		}
 		else if(sizeNFCafter != 0 && sizeNFC == 0){

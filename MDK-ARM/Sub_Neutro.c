@@ -392,9 +392,10 @@ void formattaNeutro(void){
 	
 	/*
 	 * NFC: 100 eventi da 32 byte = 3200 byte.
-	 * Cancellazione rapida progressiva: 14 chunk max da 240 byte.
+	 * Cancellazione robusta progressiva: 50 chunk da 64 byte,
+	 * con verifica di lettura dopo ogni scrittura.
 	 */
-	formatNeutro = 14;
+	formatNeutro = 200;
 	inviaDebug((u8*)"erase neutral/voltage imbalance events started\n");
 
 }

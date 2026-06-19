@@ -481,9 +481,10 @@ void formattaGuasti(void){
 	
 	/*
 	 * NFC: 100 eventi da 16 byte = 1600 byte.
-	 * Cancellazione rapida progressiva: 7 chunk max da 240 byte.
+	 * Cancellazione robusta progressiva: 25 chunk da 64 byte,
+	 * con verifica di lettura dopo ogni scrittura.
 	 */
-	formatGuasti = 7;
+	formatGuasti = 100;
 	inviaDebug((u8*)"erase overcurrent/fault events started\n");
 	
 }

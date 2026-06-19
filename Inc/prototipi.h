@@ -143,6 +143,7 @@ u32 acquisizioneADC(int channel);
 void controlloAntifurtoProva(void);
 void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset);
 void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset);
+u8 writeNFC32Checked(uint8_t *inBuf, uint8_t size, uint8_t *offset);
 void killRF(void);
 void salvaGuastoFake(void);
 u32 isDST(u32 A);
