@@ -112,12 +112,35 @@ static u32 mysqlPendingNeutralEndTimeMax = 0;
 
 #define DB_RETRY_DELAY_MS        30000UL
 #define DB_RETRY_DELAY_LONG_MS   120000UL
-#define DB_MAX_RETRY              5
+#define DB_MAX_RETRY             5
 
 static u8 databaseTxBusy = 0;
 static u8 databaseTxType = DB_TX_NONE;
 static u8 databaseTxRetry = 0;
+static u8 databaseWaitHttpParaOk = 0;
 static u32 databaseNextRetryTick = 0;
+
+static void databaseFinalizeUrl(u8 *buf, u16 maxLen)
+{
+	u16 len;
+	if(buf == 0 || maxLen < 4){
+		return;
+	}
+	len = (u16)strlen((char*)buf);
+	if(len > (u16)(maxLen - 3)){
+		/* Tronca in modo sicuro: meglio un HTTP error con retry che inviare byte sporchi. */
+		len = (u16)(maxLen - 3);
+	}
+	buf[len++] = '\x22';
+	buf[len++] = '\r';
+	buf[len] = 0;
+}
+
+static void databaseSendUrl(u8 *buf, u16 maxLen)
+{
+	databaseFinalizeUrl(buf,maxLen);
+	HAL_UART_Transmit(&huart6,buf,strlen((char*)buf),1000);
+}
 
 void clearDatabaseRequests(void){
 	aggiungiTensioniDBflag = 0;
@@ -134,6 +157,7 @@ void clearDatabaseRequests(void){
 	databaseTxBusy = 0;
 	databaseTxType = DB_TX_NONE;
 	databaseTxRetry = 0;
+	databaseWaitHttpParaOk = 0;
 	databaseNextRetryTick = 0;
 }
 
@@ -171,6 +195,49 @@ static void databaseClearFlag(u8 type)
 	}
 }
 
+
+static void databaseDropPending(u8 type, const char *reason)
+{
+	u8 uart[140];
+	sprintf((char*)uart,"DB save aborted: %s after %d retries (%s)\n",databaseTxName(type),databaseTxRetry,reason);
+	inviaDebug(uart);
+	databaseClearFlag(type);
+	databaseTxBusy = 0;
+	databaseTxType = DB_TX_NONE;
+	databaseTxRetry = 0;
+	databaseWaitHttpParaOk = 0;
+	databaseNextRetryTick = 0;
+}
+
+static void databaseScheduleRetry(const char *reason, int status)
+{
+	u8 uart[150];
+	u8 type = databaseTxType;
+	databaseTxBusy = 0;
+	databaseWaitHttpParaOk = 0;
+	databaseTxRetry++;
+
+	if(databaseTxRetry >= DB_MAX_RETRY){
+		databaseDropPending(type,reason);
+		return;
+	}
+
+	if(databaseTxRetry > 3){
+		databaseNextRetryTick = HAL_GetTick() + DB_RETRY_DELAY_LONG_MS;
+	}
+	else{
+		databaseNextRetryTick = HAL_GetTick() + DB_RETRY_DELAY_MS;
+	}
+
+	if(status >= 0){
+		sprintf((char*)uart,"DB save retry pending: %s HTTP %d retry %d/%d\n",databaseTxName(type),status,databaseTxRetry,DB_MAX_RETRY);
+	}
+	else{
+		sprintf((char*)uart,"DB save modem error: %s retry %d/%d\n",databaseTxName(type),databaseTxRetry,DB_MAX_RETRY);
+	}
+	inviaDebug(uart);
+}
+
 static int databaseParseHttpStatus(u8 *messaggio)
 {
 	char *p;
@@ -188,99 +255,24 @@ static void databaseTxStart(u8 type)
 	u8 uart[90];
 	databaseTxBusy = 1;
 	databaseTxType = type;
+	databaseWaitHttpParaOk = 1;
 	sprintf((char*)uart,"DB send started: %s\n",databaseTxName(type));
 	inviaDebug(uart);
-}
-
-static void databaseAbortCurrentTx(const char *reason)
-{
-	u8 uart[140];
-	u8 type = databaseTxType;
-
-	if(type == DB_TX_NONE){
-		type = databaseTxType;
-	}
-
-	if(reason == 0){
-		reason = "error";
-	}
-
-	sprintf((char*)uart,"DB save aborted: %s after %d retries (%s)\n",databaseTxName(type),DB_MAX_RETRY,reason);
-	inviaDebug(uart);
-	databaseClearFlag(type);
-	databaseTxBusy = 0;
-	databaseTxType = DB_TX_NONE;
-	databaseTxRetry = 0;
-	databaseNextRetryTick = 0;
-}
-
-static void databaseScheduleRetry(const char *reason, int status)
-{
-	u8 uart[150];
-
-	if(databaseTxRetry >= DB_MAX_RETRY){
-		databaseAbortCurrentTx(reason);
-		return;
-	}
-
-	if(databaseTxRetry > 3){
-		databaseNextRetryTick = HAL_GetTick() + DB_RETRY_DELAY_LONG_MS;
-	}
-	else{
-		databaseNextRetryTick = HAL_GetTick() + DB_RETRY_DELAY_MS;
-	}
-
-	if(status >= 0){
-		sprintf((char*)uart,"DB save retry pending: %s HTTP %d retry %d/%d\n",databaseTxName(databaseTxType),status,databaseTxRetry,DB_MAX_RETRY);
-	}
-	else{
-		sprintf((char*)uart,"DB save modem error: %s retry %d/%d\n",databaseTxName(databaseTxType),databaseTxRetry,DB_MAX_RETRY);
-	}
-	inviaDebug(uart);
-}
-
-static void databaseFinalizeAndSend(u8 *cmd, u16 cmdSize)
-{
-	u32 len;
-	u8 uart[120];
-
-	if(cmd == 0 || cmdSize < 4){
-		databaseHttpError();
-		return;
-	}
-
-	len = strlen((char*)cmd);
-	if(len + 3 >= cmdSize){
-		sprintf((char*)uart,"DB URL too long: %s len %lu\n",databaseTxName(databaseTxType),(unsigned long)len);
-		inviaDebug(uart);
-		databaseHttpError();
-		if(statoModulo > 0){
-			statoModulo--;
-			inviaDebug("statoModulo--\n");
-		}
-		return;
-	}
-
-	/* Chiusura robusta del comando AT+HTTPPARA.
-	 * Prima il codice scriveva '"' e subito dopo ricalcolava strlen() senza
-	 * aver scritto il terminatore NULL: se il buffer conteneva spazzatura oltre
-	 * la URL, venivano trasmessi caratteri spurii come ...V3=22437"d.
-	 */
-	cmd[len++] = '\x22';
-	cmd[len++] = '\r';
-	cmd[len] = 0;
-
-	resetWD();
-	HAL_UART_Transmit(&huart6,cmd,(uint16_t)len,300);
-	delay(20);
-	resetWD();
-	HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPACTION=1\r",16,300);
-	resetWD();
 }
 
 u8 databaseTxIsBusy(void)
 {
 	return databaseTxBusy;
+}
+
+void databaseHttpParaOk(void)
+{
+	if(databaseTxBusy == 0 || databaseWaitHttpParaOk == 0){
+		return;
+	}
+	databaseWaitHttpParaOk = 0;
+	inviaDebug("DB HTTPPARA OK, HTTPACTION start\n");
+	HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPACTION=1\r",16,1000);
 }
 
 void databaseHttpActionResult(u8 *messaggio)
@@ -299,11 +291,10 @@ void databaseHttpActionResult(u8 *messaggio)
 		databaseTxBusy = 0;
 		databaseTxType = DB_TX_NONE;
 		databaseTxRetry = 0;
+		databaseWaitHttpParaOk = 0;
 		databaseNextRetryTick = 0;
 	}
 	else{
-		databaseTxBusy = 0;
-		databaseTxRetry++;
 		databaseScheduleRetry("HTTPACTION",status);
 	}
 }
@@ -313,8 +304,6 @@ void databaseHttpError(void)
 	if(databaseTxBusy == 0){
 		return;
 	}
-	databaseTxBusy = 0;
-	databaseTxRetry++;
 	databaseScheduleRetry("HTTPPARA/timeout",-1);
 }
 
@@ -395,7 +384,7 @@ void aggiungiIntrusioneDB(u8 passaggio){
 			i++;
 		}
 		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&time=%u",myTimeVar);  
-		databaseFinalizeAndSend(stringaIntrusioneDB,sizeof(stringaIntrusioneDB));
+		databaseSendUrl(stringaIntrusioneDB,sizeof(stringaIntrusioneDB));
 			
 }
 
@@ -416,8 +405,8 @@ void aggiungiMeasProfileDB(u8 passaggio){
 		return;
 	}
 	
-		memset(stringaMeasDB,0,sizeof(stringaMeasDB));
-		i = 0;
+			memset(stringaMeasDB,0,sizeof(stringaMeasDB));
+			i = 0;
 		
 		inviaDebug("entrato MEAS\n");
 		
@@ -441,7 +430,8 @@ void aggiungiMeasProfileDB(u8 passaggio){
 			i++;
 		}
 		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&time=%u&V1=%u&V2=%u&V3=%u&I1a=%d&I2a=%d&I3a=%d&I1b=%d&I2b=%d&I3b=%d&f1a=%d&f2a=%d&f3a=%d&f1b=%d&f2b=%d&f3b=%d&pf1a=%d&pf2a=%d&pf3a=%d&pf1b=%d&pf2b=%d&pf3b=%d&P1a=%d&P2a=%d&P3a=%d&P1b=%d&P2b=%d&P3b=%d&Q1a=%d&Q2a=%d&Q3a=%d&Q1b=%d&Q2b=%d&Q3b=%d",myTimeVar,V[0],V[1],V[2],I1meas[0],I1meas[1],I1meas[2],I2meas[0],I2meas[1],I2meas[2],phi1meas[0],phi1meas[1],phi1meas[2],phi2meas[0],phi2meas[1],phi2meas[2],cosphi1meas[0],cosphi1meas[1],cosphi1meas[2],cosphi2meas[0],cosphi2meas[1],cosphi2meas[2],P1meas[0],P1meas[1],P1meas[2],P2meas[0],P2meas[1],P2meas[2],Q1meas[0],Q1meas[1],Q1meas[2],Q2meas[0],Q2meas[1],Q2meas[2]);               
-		databaseFinalizeAndSend(stringaMeasDB,sizeof(stringaMeasDB));
+		databaseSendUrl(stringaMeasDB,sizeof(stringaMeasDB));
+
 		
 }
 
@@ -484,7 +474,8 @@ void aggiungiLoadProfileDB(u8 passaggio){
 			i++;
 		}
 		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&time=%u&E1p1=%lu&E2p1=%lu&E3p1=%lu&E1p2=%lu&E2p2=%lu&E3p2=%lu&E1n1=%lu&E2n1=%lu&E3n1=%lu&E1n2=%lu&E2n2=%lu&E3n2=%lu&R1p1=%lu&R2p1=%lu&R3p1=%lu&R1p2=%lu&R2p2=%lu&R3p2=%lu&R1n1=%lu&R2n1=%lu&R3n1=%lu&R1n2=%lu&R2n2=%lu&R3n2=%lu",myTimeVar,E1p[0],E1p[1],E1p[2],E2p[0],E2p[1],E2p[2],E1n[0],E1n[1],E1n[2],E2n[0],E2n[1],E2n[2],R1p[0],R1p[1],R1p[2],R2p[0],R2p[1],R2p[2],R1n[0],R1n[1],R1n[2],R2n[0],R2n[1],R2n[2]);               
-		databaseFinalizeAndSend(stringaLoadDB,sizeof(stringaLoadDB));
+		databaseSendUrl(stringaLoadDB,sizeof(stringaLoadDB));
+
 
 }
 
@@ -532,7 +523,8 @@ void aggiungiGuastoDB(u8 passaggio, u32* corrente){
 		}
 		
 		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&time=%u&I1a=%u&I2a=%u&I3a=%u&I1b=%u&I2b=%u&I3b=%u",myTimeVar,corrente[0],corrente[1],corrente[2],corrente[3],corrente[4],corrente[5]);  
-		databaseFinalizeAndSend(stringaGuastoDB,sizeof(stringaGuastoDB));
+		databaseSendUrl(stringaGuastoDB,sizeof(stringaGuastoDB));
+
 		
 }
 
@@ -556,8 +548,8 @@ void aggiungiUnderDB(u8 passaggio, u32* tensione){
 		return;
 	}	
 	
-		memset(stringaUnderDB,0,sizeof(stringaUnderDB));
-		i = 0;
+			memset(stringaUnderDB,0,sizeof(stringaUnderDB));
+			i = 0;
 		
 		statoModulo++; inviaDebug("statoModulo++\n");
 		databaseTxStart(DB_TX_UNDER);
@@ -580,7 +572,8 @@ void aggiungiUnderDB(u8 passaggio, u32* tensione){
 		}
 		
 		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
-		databaseFinalizeAndSend(stringaUnderDB,sizeof(stringaUnderDB));
+		databaseSendUrl(stringaUnderDB,sizeof(stringaUnderDB));
+
 	
 }
 
@@ -603,8 +596,8 @@ void aggiungiOverDB(u8 passaggio, u32* tensione){
 		return;
 	}
 	
-		memset(stringaOverDB,0,sizeof(stringaOverDB));
-		i = 0;
+			memset(stringaOverDB,0,sizeof(stringaOverDB));
+			i = 0;
 			
 		statoModulo++; inviaDebug("statoModulo++\n");
 		databaseTxStart(DB_TX_OVER);
@@ -627,7 +620,8 @@ void aggiungiOverDB(u8 passaggio, u32* tensione){
 		}
 		
 		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
-		databaseFinalizeAndSend(stringaOverDB,sizeof(stringaOverDB));
+		databaseSendUrl(stringaOverDB,sizeof(stringaOverDB));
+
 }
 
 
@@ -674,7 +668,8 @@ void aggiungiNeutroStartDB(u8 passaggio, u16* diffStart){
 		}
 		
 		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&timeS=%u&d1s=%u&d2s=%u&d3s=%u",myTimeVar,diffStart[0],diffStart[1],diffStart[2]);  
-		databaseFinalizeAndSend(stringaNeutroStartDB,sizeof(stringaNeutroStartDB));
+		databaseSendUrl(stringaNeutroStartDB,sizeof(stringaNeutroStartDB));
+
 }
 
 
@@ -726,7 +721,8 @@ void aggiungiNeutroEndDB(u8 passaggio, u32 timeMax, u16* diffMax, u16* diffEnd){
 			i++;
 		}
 		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&timeM=%u&d1m=%u&d2m=%u&d3m=%u&timeE=%u&d1e=%u&d2e=%u&d3e=%u",timeMax, diffMax[0], diffMax[1], diffMax[2], myTimeVar, diffEnd[0], diffEnd[1], diffEnd[2]);  
-		databaseFinalizeAndSend(stringaNeutroEndDB,sizeof(stringaNeutroEndDB));
+		databaseSendUrl(stringaNeutroEndDB,sizeof(stringaNeutroEndDB));
+
 }
 
 
@@ -769,7 +765,8 @@ void aggiungiRebootDB(u8 passaggio){
 		}
 		
 		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&time=%u",myTimeVar-5);  
-		databaseFinalizeAndSend(stringaRebootDB,sizeof(stringaRebootDB));
+		databaseSendUrl(stringaRebootDB,sizeof(stringaRebootDB));
+
 	
 }
 
@@ -814,6 +811,7 @@ void aggiungiDebugDB(u8 passaggio){
 		}
 		
 		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&time=%u&temp=%d&batt=%d&level=%d&char=%d",myTimeVar,temperatura,tensioneBint,batteryLevel,batteriaInCarica);  
-		databaseFinalizeAndSend(stringaDebugDB,sizeof(stringaDebugDB));
+		databaseSendUrl(stringaDebugDB,sizeof(stringaDebugDB));
+
 		
 }

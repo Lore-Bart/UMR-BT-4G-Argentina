@@ -145,8 +145,8 @@ void controllaBatteria(void){
 	
 	//return;
 	
-	sprintf(uart,"batteria: %f, %d\n",tensioneB,acquisizione);
-	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+	//sprintf(uart,"batteria: %f, %d\n",tensioneB,acquisizione);
+	//HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
 	
 	tensioneB *= 10;
 	tensioneBint = tensioneB;

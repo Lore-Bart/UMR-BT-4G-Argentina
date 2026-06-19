@@ -189,6 +189,11 @@ void inviaSMSpoll(u8 coda);
 void esportaParametriInternet(u8* messaggio);
 void connettiInternet(void);
 void clearDatabaseRequests(void);
+void processDatabaseRequests(void);
+u8 databaseTxIsBusy(void);
+void databaseHttpActionResult(u8 *messaggio);
+void databaseHttpError(void);
+void databaseHttpParaOk(void);
 void aggiungiTensioniDB(void);
 void aggiungiMeasProfileDB(u8 passaggio);
 void aggiungiLoadProfileDB(u8 passaggio);
@@ -278,3 +283,6 @@ void stateInternet(u8* messaggio);
 void restartInternet(u8* messaggio);
 void scriviSeriale(void);
 void produzioneFun(void);
+
+// Erase internal flash sector with external watchdog service
+u8 internalFlashEraseSectorWD(uint32_t sector);

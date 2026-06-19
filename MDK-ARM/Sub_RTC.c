@@ -561,6 +561,10 @@ void RTCpolling(void){
 				}
 			}*/
 	
+		//if(multiplocinque(myTimeVar)){
+		//	preparaMeas();
+		//	preparaLoad();
+		//}
 		
 			if(lowpower == 0){
 				if(riavvio == 0){
@@ -860,6 +864,8 @@ void RTCpolling(void){
 		if(updateAttivo > 0){
 			updateAttivo--;
 			if(updateAttivo == 0){
+				/* Causa esplicita: il reset seguente e' voluto tramite watchdog esterno. */
+				inviaDebug("RESET REQUEST: BT update timeout - external WD will reset\n");
 				emergenza = 3;
 			}
 		}

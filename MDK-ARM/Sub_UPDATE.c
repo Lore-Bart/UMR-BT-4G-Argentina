@@ -55,6 +55,37 @@ u8 bytes16[16] = {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0x
 #define BT_UPDATE_APP_VALID_MARKER       0x77777777UL
 #define BT_UPDATE_ACTIVE_MARKER          0x11111111UL
 
+
+static void btUpdateWaitInternalFlashReadyWD(void)
+{
+	while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != RESET){
+		resetWD();
+	}
+}
+
+u8 internalFlashEraseSectorWD(uint32_t sector)
+{
+	/* FLASH_Erase_Sector() e HAL_FLASHEx_Erase() sono bloccanti: su sector erase
+	 * possono superare 1 s e far scattare il watchdog esterno. Qui avvio l'erase
+	 * a registro e attendo BSY alimentando resetWD().
+	 */
+	HAL_FLASH_Unlock();
+	btUpdateWaitInternalFlashReadyWD();
+	__HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
+
+	FLASH->CR &= ~(FLASH_CR_SNB | FLASH_CR_PSIZE);
+	FLASH->CR |= FLASH_CR_SER | (sector << 3) | FLASH_PSIZE_WORD;
+	FLASH->CR |= FLASH_CR_STRT;
+
+	btUpdateWaitInternalFlashReadyWD();
+	FLASH->CR &= ~(FLASH_CR_SER | FLASH_CR_SNB);
+
+	if(__HAL_FLASH_GET_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR) != RESET){
+		return 0;
+	}
+	return 1;
+}
+
 static u32 btUpdateWordFromPacket(u8 *inBuf, int wordIndex)
 {
 	u32 progVar;
@@ -74,7 +105,7 @@ static u8 btUpdateProgramWordVerified(u32 address, u32 progVar)
 			return 1;
 		}
 		HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-		FLASH_WaitForLastOperation(1000);
+		btUpdateWaitInternalFlashReadyWD();
 		if(*(volatile u32*)address == progVar){
 			return 1;
 		}
@@ -288,30 +319,18 @@ void formattaFlashInterna(void){
 	address3 = *(u32*)0x08008200;
 	
 	if(address != 0x11111111){
-			FLASH_Erase_Sector(FLASH_SECTOR_2,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);
-			FLASH_Erase_Sector(FLASH_SECTOR_3,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);
-			FLASH_Erase_Sector(FLASH_SECTOR_4,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);
-			FLASH_Erase_Sector(FLASH_SECTOR_5,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);		
+			internalFlashEraseSectorWD(FLASH_SECTOR_2);
+			internalFlashEraseSectorWD(FLASH_SECTOR_3);
+			internalFlashEraseSectorWD(FLASH_SECTOR_4);
+			internalFlashEraseSectorWD(FLASH_SECTOR_5);		
 	}
 	
 	address = *(u32*)0x08040000;
 	address3 = *(u32*)0x08040200;
 	
 		if(address != 0x11111111){
-			FLASH_Erase_Sector(FLASH_SECTOR_6,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);
-			FLASH_Erase_Sector(FLASH_SECTOR_7,VOLTAGE_RANGE_3);
-			resetWD();
-			FLASH_WaitForLastOperation(1000);	
+			internalFlashEraseSectorWD(FLASH_SECTOR_6);
+			internalFlashEraseSectorWD(FLASH_SECTOR_7);	
 	}
 	
 }
@@ -322,7 +341,7 @@ void scriviSeriale(void){
 	
 		
 	HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-	FLASH_WaitForLastOperation(1000);
+	btUpdateWaitInternalFlashReadyWD();
 	
 	progVar = serialeDaScrivere[0]<<24;
 	progVar |= serialeDaScrivere[1]<<16;
@@ -332,7 +351,7 @@ void scriviSeriale(void){
 	address = 0x08007ffc;
 	
 	HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,address,progVar);
-	FLASH_WaitForLastOperation(1000);
+	btUpdateWaitInternalFlashReadyWD();
 	
 }
 

@@ -53,7 +53,7 @@ u8 numeroAllarmi[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 //versione software
-u16 software = 20;
+u16 software = 40;
 u8 XL = 0;	
 
 extern u8 BTattivo;
@@ -264,11 +264,10 @@ void HAL_Delay(uint32_t Delay)
 		if ((uint32_t)(tick - tickOld) >= 100)
 		{
 			tickOld = tick;
-			/* Mantiene vivo il watchdog esterno anche durante HAL_Delay lunghi.
-			 * Prima veniva solo togglato PE4: funzionava nella maggior parte dei casi,
-			 * ma non passava dalla funzione ufficiale resetWD().
-			 */
-			resetWD();
+
+			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_4);
+			for (volatile uint8_t d = 0xFF; d != 0; d--) { __NOP(); }
+			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_4);
 		}
 	}
 }
@@ -296,7 +295,6 @@ int mymain(void){
 	
 	//Print_ResetFlags(&huart1);
 		print_reset_cause(); // <<<<< QUI
-	resetWD();
 
 	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_SET); //LED VERDE ACCESO
 	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,GPIO_PIN_RESET); //LED ROSSO SPENTO
@@ -617,8 +615,9 @@ int mymain(void){
 				inviaDebug("cancellazione seriale\n");
 				HAL_FLASH_Unlock();
 				resetWD();
-				internalFlashEraseSectorWD(FLASH_SECTOR_1);
+				FLASH_Erase_Sector(FLASH_SECTOR_1,VOLTAGE_RANGE_3);
 				resetWD();
+				FLASH_WaitForLastOperation(1000);
 				timerProduzione++;
 			}
 			else if(timerProduzione == 5){ //scrivo nuovo seriale

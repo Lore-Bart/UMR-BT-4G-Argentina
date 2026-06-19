@@ -349,6 +349,11 @@ void risposteGSM(uint8_t *messaggio){
 			statoModulo--; inviaDebug("statoModulo--\n");
 		}
 	}
+	else if(cercaStringa(&messaggio[0],(u8*)"OK",2,&pointer) == 1){
+		/* Durante una richiesta DB, l'OK di AT+HTTPPARA abilita solo ora HTTPACTION.
+		 * Se HTTPPARA risponde ERROR non viene lanciato un HTTPACTION con URL vecchio. */
+		databaseHttpParaOk();
+	}
 	else if(cercaStringa(&messaggio[0],(u8*)"ERROR",5,&pointer) == 1){
 		/* Se un invio SMS o una richiesta DB fallisce, non lasciamo il modulo occupato per sempre. */
 		if(smsTxBusy != 0){

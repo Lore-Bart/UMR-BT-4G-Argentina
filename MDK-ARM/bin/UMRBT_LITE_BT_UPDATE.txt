@@ -4,14 +4,14 @@ Input APP1 0x08008200: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 
 Input APP3 0x08040200: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 (polling) - Argentina\MDK-ARM\bin\app_08040200.bin
 Output unico app Android: C:\Users\loren\Desktop\UMR-BT\4G\firmware 4G\firmware 21 (polling) - Argentina\MDK-ARM\bin\UMRBT_LITE_BT_UPDATE.bin
 
-APP1 raw bytes:        117616
-APP1 padded 72 bytes:  117648
-APP3 raw bytes:        117616
-APP3 padded 72 bytes:  117648
-Half size finale:      117648
-Pacchetti per metà:    1634
-Pacchetti totali:      3268
-Output bytes:          235296
+APP1 raw bytes:        117992
+APP1 padded 72 bytes:  118008
+APP3 raw bytes:        117992
+APP3 padded 72 bytes:  118008
+Half size finale:      118008
+Pacchetti per metà:    1639
+Pacchetti totali:      3278
+Output bytes:          236016
 
 Controlli:
 - half_size multiplo di 72: True
