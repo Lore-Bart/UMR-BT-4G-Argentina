@@ -302,7 +302,7 @@ int mymain(void){
 	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,GPIO_PIN_RESET); //LED ROSSO SPENTO
 		
 			
-	//HAL_TIM_Base_Start_IT(&htim4); //attivo watchdog(sogliaCorrenteA == 0 && sogliaCorrenteB == 0)
+	HAL_TIM_Base_Start_IT(&htim4); //attivo watchdog(sogliaCorrenteA == 0 && sogliaCorrenteB == 0)
 	__HAL_RTC_WAKEUPTIMER_ENABLE(&hrtc); //avvio l'orologio
 	
 	

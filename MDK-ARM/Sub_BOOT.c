@@ -700,9 +700,11 @@ void TIM4_IRQHandler(void)
 	if(statoAttuale != statoPrecedente){
 		netCount++;
 	}
-	statoPrecedente = statoAttuale;
+	statoPrecedente = statoAttuale;*/
 	
-	resetWD();*/
+	//inviaDebug("ciao");
+	
+	resetWD();
 	
 }
 
