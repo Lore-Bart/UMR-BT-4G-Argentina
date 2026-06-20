@@ -712,9 +712,9 @@ void resetWD(void){
 	
 	
 
-	if(emergenza == 3 || emergenzaCollaudo != 0){
-		return;
-	}
+//	if(emergenza == 3 || emergenzaCollaudo != 0){
+//		return;
+//	}
 	
 	HAL_GPIO_TogglePin(GPIOE,GPIO_PIN_4);
 	while(delay != 0){delay--;}
