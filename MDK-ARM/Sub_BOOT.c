@@ -181,7 +181,7 @@ void boot(void){
 	//HAL_TIM_Base_Init(&htim4);
 	
 	
-	HAL_Delay(3000);
+	//HAL_Delay(3000);
 	
 	
 	avvioSistema(); //ricarica le variabili salvate

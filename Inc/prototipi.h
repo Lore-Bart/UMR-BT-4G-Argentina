@@ -284,5 +284,7 @@ void restartInternet(u8* messaggio);
 void scriviSeriale(void);
 void produzioneFun(void);
 
+void controllaBatteriaProva2(void);
+
 // Erase internal flash sector with external watchdog service
 u8 internalFlashEraseSectorWD(uint32_t sector);

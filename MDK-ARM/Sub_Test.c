@@ -135,6 +135,7 @@ extern u8 pwSQL[30]; //vecchio 20
 extern u8 produzione;
 extern u16 timerProduzione;
 extern u8 serialeDaScrivere[4];
+extern u8 timerModuloESC;
 
 void USART1_IRQHandler(void)
 {
@@ -509,18 +510,38 @@ void eseguiComandoTest(uint8_t *messaggio){
 				HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_1);
 				break;
 			
-			case 0x75:
-				if(messaggio[7] == 49){
-						
+			case 0x73:
+				inviaDebug("ciao\n");
+				controllaBatteriaProva2();
+				break;
+			case 0x74:
+				sprintf(APN,"ibox.tim.it");
+				sprintf(mySQL,"http://a2atestmisure.altervista.org");
+				sprintf(userSQL,"a2atestmisure");
+				sprintf(pwSQL,"REPL");
+			
+				statoInternet = 1;
+				disattivaInternetFlag = 0;					
 					
+					
+					/* Se statoModulo e' rimasto bloccato da una risposta persa,
+					 * dopo il timeout lo libero per permettere la riattivazione manuale.
+					 */
+					if(statoModulo != 0 && timerModuloESC == 0){
+						inviaDebug("recupero statoModulo per riavvio internet\n");
+						statoModulo = 0;
 					}
-				else{
-				
-				}
-						
-
-						
-				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+					
+					if(statoModulo == 0){
+						connettiInternet();
+					}
+					
+				break;
+			
+			
+			case 0x75:
+				preparaLoad();
+				preparaMeas();
 				break;
 			
 			case 0x76: //ping

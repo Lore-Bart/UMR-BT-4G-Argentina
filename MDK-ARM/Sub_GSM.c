@@ -2230,7 +2230,7 @@ void refreshSignal(u8 *messaggio){
 
 void requestSignal(void){
 	
-	return;
+	
 	/*
 	 * Richiesta livello segnale gestita come transazione AT.
 	 * Parte solo se il modulo e' libero; statoModulo viene liberato alla ricezione di +CSQ.

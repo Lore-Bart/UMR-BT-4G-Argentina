@@ -211,28 +211,31 @@ u32 saveInterval(u8 active){
 	u32 time = 0;
 	
 	switch(active){
-		case 1: //15 minuti
+		case 1:
+			time = 300;
+			break;
+		case 2: //15 minuti
 			time = 900;
 			break;
-		case 2: //30 minuti
+		case 3: //30 minuti
 			time = 1800;
 			break;
-		case 3: //1 ora
+		case 4: //1 ora
 			time = 3600;
 			break;
-		case 4: //2 ore
+		case 5: //2 ore
 			time = 7200;
 			break;	
-		case 5: //3 ore
+		case 6: //3 ore
 			time = 10800;
 			break;
-		case 6: //6 ore
+		case 7: //6 ore
 			time = 21600;
 			break;
-		case 7: //12 ore
+		case 8: //12 ore
 			time = 43200;
 			break;
-		case 8: //24 ore
+		case 9: //24 ore
 			time = 86400;
 			break;	
 	}
@@ -742,6 +745,7 @@ void salvataggio(void){
 					preparaMeas();
 					salvataggioNormale = 1;
 				}
+			break;
 		case 2: //15 minuti
 			if(currentTime.Seconds == 0  && (currentTime.Minutes == 0 || currentTime.Minutes == 15 || currentTime.Minutes == 30 || currentTime.Minutes == 45)){
 					preparaMeas();

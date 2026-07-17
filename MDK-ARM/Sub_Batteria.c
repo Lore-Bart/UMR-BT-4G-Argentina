@@ -82,6 +82,73 @@ double controllaBatteriaProva(void){
 	
 }
 
+void controllaBatteriaProva2(void){
+	u32 acquisizione;
+	double tensione;
+	u8 uart[35];
+	
+	
+	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,GPIO_PIN_SET);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	delay(50);
+	acquisizione = acquisizioneADC(9);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	
+	tensione = acquisizione;
+	tensione *= 0.003071;
+
+	sprintf(uart,"tensione1: %f\n",tensione);
+	inviaDebug(uart);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_1);
+	
+	HAL_Delay(1000);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	delay(50);
+	acquisizione = acquisizioneADC(9);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	
+	tensione = acquisizione;
+	tensione *= 0.003071;
+
+	sprintf(uart,"tensione2: %f\n",tensione);
+	inviaDebug(uart);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_1);
+	
+	HAL_Delay(1000);
+	
+		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	delay(50);
+	acquisizione = acquisizioneADC(9);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	
+	tensione = acquisizione;
+	tensione *= 0.003071;
+
+	sprintf(uart,"tensione1: %f\n",tensione);
+	inviaDebug(uart);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_1);
+	
+	HAL_Delay(1000);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	delay(50);
+	acquisizione = acquisizioneADC(9);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_0);
+	
+	tensione = acquisizione;
+	tensione *= 0.003071;
+
+	sprintf(uart,"tensione2: %f\n",tensione);
+	inviaDebug(uart);
+	
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_1);
+	
+}
+
 u32 controllaBatteriaProva5(void){
 	u8 rimettiInCarica = 0;
 	u32 acquisizione;

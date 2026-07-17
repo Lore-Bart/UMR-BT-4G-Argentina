@@ -315,20 +315,20 @@ u8 timerModuloESC = timerModuloESCinit;
 
 void RTC_WKUP_IRQHandler(void)
 {
-	u8 deleteSMS[19] = "AT+QMGDA= DEL ALL\x22\r";
+	//u8 deleteSMS[19] = "AT+QMGDA= DEL ALL\x22\r";
 	static u16 time = 0;	
 	static u8 avvio = 0;
 	static u8 a = 0;
 	//per NFC
-	u16 beforeOffset;	
-	u8 addressFram[2] = {1,100};
-	u8 offset[2];
+	//u16 beforeOffset;	
+	//u8 addressFram[2] = {1,100};
+	//u8 offset[2];
 	static u8 collaudo = 0;
 	static u8 timerCollaudo = 3;
-	u8 uart[50];
+	static u8 uart[50];
 	
 	static u8 riavvio = 0;
-	u8 addressFlash[3] = {0,0,0}; //per formattazione flash
+	//u8 addressFlash[3] = {0,0,0}; //per formattazione flash
 	
 	static u8 annuncio4G = 0;
 	static int accensione = 0;
@@ -336,13 +336,13 @@ void RTC_WKUP_IRQHandler(void)
 	
 
 	
-	u8 stringa1[50] = "ciao come va stronzo";
+	//u8 stringa1[50] = "ciao come va stronzo";
 
 		
 		
   HAL_RTCEx_WakeUpTimerIRQHandler(&hrtc);
 	
-	deleteSMS[9] = 0x22;
+	//deleteSMS[9] = 0x22;
 	UpdateTime();
 	timerBT++;
 	contatoreAvvio++;
@@ -357,7 +357,7 @@ void RTC_WKUP_IRQHandler(void)
 	}
 	else{
 		alimentatore = 0;
-		if(produzione != 0 || time < 299){
+		if(produzione != 0 || time < 10){
 			alimentatore = 1;
 			}
 	}
@@ -370,8 +370,8 @@ void RTC_WKUP_IRQHandler(void)
 		riavvio = 0;
 		//adeinit();
 		adeinit3();
-		avvioConcluso = 0;
-		avvio = 0;
+		//avvioConcluso = 0;
+		//avvio = 0;
 	}
 	
 	
@@ -425,12 +425,12 @@ void RTC_WKUP_IRQHandler(void)
 		
 		//abilito i rivelatori di picco
 		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_10,GPIO_PIN_SET);
-		inibitGuastoSMS = 5;
+		//inibitGuastoSMS = 5;
 		
 	}
 	
 		
-	if(avvio < (durataAvvio-10)){
+	/*if(avvio < (durataAvvio-10)){
 		avvio++;
 		HAL_GPIO_TogglePin(GPIOA,GPIO_PIN_9);
 		HAL_GPIO_TogglePin(GPIOA,GPIO_PIN_10);
@@ -470,7 +470,11 @@ void RTC_WKUP_IRQHandler(void)
 		resetWD();
 		
 	}
-	else{
+	else{*/
+	
+	if(riavvio == 0){
+		
+		resetWD();
 			
 			
 			if(lowpower == 0){
@@ -480,6 +484,7 @@ void RTC_WKUP_IRQHandler(void)
 					//sprintf(uart,"%d %d %d\n", Vnc[0],Vnc[1],Vnc[2]);
 					//inviaDebug(uart);
 					//inviaDebug("acquisizione\n");
+					
 				}
 			}
 			RTCpollingFlag = 1;

@@ -53,7 +53,7 @@ u8 numeroAllarmi[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 //versione software
-u16 software = 20;
+u16 software = 21;
 u8 XL = 0;	
 
 extern u8 BTattivo;
@@ -295,16 +295,27 @@ int mymain(void){
 			
 	
 	//Print_ResetFlags(&huart1);
-		print_reset_cause(); // <<<<< QUI
+	print_reset_cause(); // <<<<< QUI
 	resetWD();
 
-	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_SET); //LED VERDE ACCESO
-	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,GPIO_PIN_RESET); //LED ROSSO SPENTO
-		
-			
-	HAL_TIM_Base_Start_IT(&htim4); //attivo watchdog(sogliaCorrenteA == 0 && sogliaCorrenteB == 0)
+	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_9,GPIO_PIN_RESET); //LED VERDE SPENTO
+	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,GPIO_PIN_SET); //LED ROSSO ACCESO
+	
+	boot(); //inizializzo le periferiche
+	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_15,GPIO_PIN_SET); //attiva batteria
+	HAL_UART_Transmit(&huart1,(u8*)"batteria attivata\n",18,100);
+	formattaFlashInterna();
+	
+	acquisizioni();
+	acquisizioni3();
+	azzeraRegistriADE1();
+	azzeraRegistriADE3();
+
+	//HAL_TIM_Base_Start_IT(&htim4); //attivo watchdog(sogliaCorrenteA == 0 && sogliaCorrenteB == 0)
 	__HAL_RTC_WAKEUPTIMER_ENABLE(&hrtc); //avvio l'orologio
 	
+	avvioConcluso = 1;
+	//aggiungiRebootDBflag = 1;
 	
 	HAL_UART_Receive_DMA(&huart2,&rxBT[0],500); //inizializzo il DMA UART
 	__HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE); //avvio l'interrupt UART
@@ -318,10 +329,7 @@ int mymain(void){
 	
 
 			
-	boot(); //inizializzo le periferiche
-	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_15,GPIO_PIN_SET); //attiva batteria
-	HAL_UART_Transmit(&huart1,(u8*)"batteria attivata\n",18,100);
-	formattaFlashInterna();
+
 	//estremiDSTuniv(); //calcolo gli estremi per l'ora legale (li devo controllare una volta al giorno);
 	
 	
@@ -668,6 +676,8 @@ int mymain(void){
 				eseguiComandoTest("0000C21");
 			}
 		}
+		
+		
 		
 		
 	}

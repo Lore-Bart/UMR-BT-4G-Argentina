@@ -112,11 +112,12 @@ extern u8 XL;
 void adeinit(void){
 
 //manca il reset
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_4);
+	/*HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_4);
 	HAL_Delay(10);
 	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_4);
+
 	
-HAL_Delay(700);
+	HAL_Delay(700);*/
 	
 	unsigned char corr1[4] = {0xe6,0x14,0x00,0xa0}; //12a scheda 1
 	unsigned char corr2[4] = {0xe6,0x15,0x00,0xa0};//125 scheda 1
@@ -153,23 +154,21 @@ HAL_I2C_Master_Transmit(&hi2c2, 0x38<<1, cf3den, 4, 100);
 HAL_I2C_Master_Transmit(&hi2c2, 0x38<<1, gain, 4, 100);
 HAL_I2C_Master_Transmit(&hi2c2, 0x38<<1, lcycmode, 3, 100);
 
-HAL_Delay(500);
+HAL_Delay(10);
 
 HAL_I2C_Master_Transmit(&hi2c2, 0x38<<1, run, 4, 100);
 
-HAL_Delay(500);
+HAL_Delay(10);
 
 }
 
 //inizializzazione ADE 2
 void adeinit3(void){
 	
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);
-	HAL_Delay(10);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);
+
 	//manca il reset
 	
-HAL_Delay(700);
+	//HAL_Delay(700);
 	
 	unsigned char corr1[4] = {0xe6,0x14,0x00,0x9f}; //12a scheda 1
 	unsigned char corr2[4] = {0xe6,0x15,0x00,0x9c};//125 scheda 1
@@ -206,11 +205,11 @@ HAL_I2C_Master_Transmit(&hi2c3, 0x38<<1, cf3den, 4, 100);
 HAL_I2C_Master_Transmit(&hi2c3, 0x38<<1, gain, 4, 100);
 HAL_I2C_Master_Transmit(&hi2c3, 0x38<<1, lcycmode, 3, 100);
 
-HAL_Delay(500);
+HAL_Delay(10);
 
 HAL_I2C_Master_Transmit(&hi2c3, 0x38<<1, run, 4, 100);
 
-HAL_Delay(500);
+HAL_Delay(10);
 
 }
 
