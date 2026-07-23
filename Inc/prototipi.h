@@ -13,6 +13,9 @@
 #define timerModuloESCinit	15
 //#define sogliaI 500
 
+#define BAT_CAL_ADC_SAMPLES          64U
+#define BAT_CAL_SETTLING_TIME_MS     400U
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -21,6 +24,49 @@ struct dstTime{
 	u32 A;
 	u32 B;
 };
+
+typedef struct
+{
+    u8 punto1Valido;
+    u8 punto2Valido;
+
+    u32 adcPunto1;
+    u32 tensionePunto1_mV;
+
+    u32 adcPunto2;
+    u32 tensionePunto2_mV;
+
+    double coefficiente_mV_count;
+    double offset_mV;
+} BatteryCalibration_t;
+
+typedef enum
+{
+    BAT_STATE_NO_SUPPLY = 0,
+    BAT_STATE_WAIT_START,
+    BAT_STATE_BULK,
+    BAT_STATE_TOP_50,
+    BAT_STATE_TOP_25,
+    BAT_STATE_STOP_CONFIRM,
+    BAT_STATE_FULL,
+    BAT_STATE_WAIT_TEMPERATURE,
+    BAT_STATE_TOO_LOW,
+    BAT_STATE_FAULT
+} BatteryState_t;
+
+
+typedef enum
+{
+    BAT_FAULT_NONE = 0,
+    BAT_FAULT_ADC,
+    BAT_FAULT_TEMPERATURE_SENSOR,
+    BAT_FAULT_BATTERY_TOO_LOW,
+    BAT_FAULT_OVERVOLTAGE,
+    BAT_FAULT_TOTAL_TIMEOUT,
+    BAT_FAULT_TOP_TIMEOUT
+} BatteryFault_t;
+
+static BatteryCalibration_t calibrazioneBatteria;
 
 
 void adeinit(void);
@@ -285,6 +331,15 @@ void scriviSeriale(void);
 void produzioneFun(void);
 
 void controllaBatteriaProva2(void);
+void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV);
+static u32 acquisisciADCcalibrazioneBatteria(void);
+void resetFaultCaricaBatteria(void);
+static u32 convertiAdcBatteria_mV(u32 adc);
+static u8 calcolaLivelloBatteria(u32 tensione_mV);
+static const char *nomeStatoBatteria(BatteryState_t stato);
+static const char *nomeFaultBatteria(BatteryFault_t fault);
+void resetFaultCaricaBatteria(void);
 
+	
 // Erase internal flash sector with external watchdog service
 u8 internalFlashEraseSectorWD(uint32_t sector);

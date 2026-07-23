@@ -550,6 +550,13 @@ void eseguiComandoTest(uint8_t *messaggio){
 				HAL_UART_Transmit(&huart2,(u8*)"\x22,4,4\r",6,100);
 				break;
 			
+			case 0x77:
+				calibraTensioneBatteria(1, 6800);
+				break;
+			case 0x78:
+				calibraTensioneBatteria(2, 8100);
+				break;
+			
 			case 0x80: //lettura NFC
 				readNFC(&risposta[0],8,&offset[0]);
 				if(risposta[5] == 'T'){
