@@ -13,6 +13,10 @@
 #define timerModuloESCinit	15
 //#define sogliaI 500
 
+#define SMS_ALARM_FRAM_PAGE           3U
+#define SMS_ALARM_FRAM_OFFSET         51U
+#define SMS_ALARM_FRAM_MARKER         0xA5U
+
 #define BAT_CAL_ADC_SAMPLES          64U
 #define BAT_CAL_SETTLING_TIME_MS     400U
 

@@ -23,6 +23,7 @@ extern ADC_HandleTypeDef hadc1;
 //numeri
 extern u8 lastNumber[10];
 extern u8 numeroAllarmi[20];
+extern u8 allarmiSMSattivi;
 
 //sovracorrenti
 u32 calibrazioneI[6];
@@ -250,7 +251,9 @@ void exTimerGuasti(void){
 		//invio SMS
 		sprintf(sms,"Alarm!\ndetected overcurrent!\nUMR: ----------------\ncurrent maximum value: %d A\nlat: %.3f  long: %.3f",maxValue,latitudineD,longitudineD);
 		copiaArray(&sms[34],&identificativo[0],16);			
-		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
+		if(allarmiSMSattivi != 0){
+			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
+		}
 			
 		//aggiungiDB
 		aggiungiGuastoDB(1,&correnteGuasto[0]);
@@ -525,7 +528,6 @@ void ultimoGuasto(u8 *outBuf){
 		}
 	}
 }
-
 
 
 

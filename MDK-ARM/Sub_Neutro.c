@@ -38,6 +38,7 @@ extern uint32_t myTimeVar;
 
 //numero
 extern u8 numeroAllarmi[20];
+extern u8 allarmiSMSattivi;
 
 //soglie
 u16 sogliaNeutro = 0;
@@ -195,7 +196,9 @@ void checkNeutro(void){
 
 		sprintf(sms,"alarm!\nneutral event started\nUMR: ----------------\nmaximum voltage difference: %.2f V\nlat: %.3f  long: %.3f",max,latitudineD,longitudineD);
 		copiaArray(&sms[34],&identificativo[0],16);
-		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		if(allarmiSMSattivi != 0){
+			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		}
 		aggiungiNeutroStartDB(1,&diff[0]);
 		//inviaSMSprova();
 		
@@ -236,7 +239,9 @@ void checkNeutro(void){
 
 		sprintf(sms,"neutral event ended\nUMR: ----------------\nlat: %.3f  long: %.3f",latitudineD,longitudineD);
 		copiaArray(&sms[25],&identificativo[0],16);
-		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		if(allarmiSMSattivi != 0){
+			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		}
 		aggiungiNeutroEndDB(1,epochMax,&diffMax[0],&diff[0]);
 	//aumentare evento
 		
@@ -469,7 +474,9 @@ void checkUnderVoltage(void){
 		sprintf(sms,"Under-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
 		copiaArray(&sms[29],&identificativo[0],16);
 		//HAL_UART_Transmit(&huart1,sms,strlen(sms),100);
-		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		if(allarmiSMSattivi != 0){
+			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		}
 		aggiungiUnderDB(1,&V[0]);
 		underVoltageEvent = 1;
 		delay = 60;
@@ -508,7 +515,9 @@ void checkOverVoltage(void){
 		sprintf(sms,"Over-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
 		copiaArray(&sms[28],&identificativo[0],16);
 		//HAL_UART_Transmit(&huart1,sms,strlen(sms),100);
-		inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		if(allarmiSMSattivi != 0){
+			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+		}
 		aggiungiOverDB(1,&V[0]);
 		overVoltageEvent = 1;
 		delay = 60;
@@ -517,7 +526,6 @@ void checkOverVoltage(void){
 		overVoltageEvent = 0;
 	}
 }
-
 
 
 

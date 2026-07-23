@@ -201,6 +201,7 @@ long temperatura = 0;
  */
 #define BAT_MAX_TOP_ON_TIME_S            (2UL * 60UL * 60UL)
 
+#define BAT_LOG_INTERVAL_MS               60000UL
 
 
 
@@ -223,6 +224,8 @@ static u32 tempoTotaleCaricaOn_s = 0;
 static u32 tempoTopCaricaOn_s = 0;
 
 static u32 ultimoTickBatteria = 0;
+static u32 ultimoTickLogBatteria = 0;
+static u8 logBatteriaInizializzato = 0;
 
 /*
  * Converte il valore ADC in millivolt tramite i due punti
@@ -1427,70 +1430,48 @@ void controllaBatteria(void)
     /* =============================================================
      * 9. DIAGNOSTICA SERIALE
      * ============================================================= */
-    if(adcValido != 0)
+    if(logBatteriaInizializzato == 0U ||
+       (tickAttuale - ultimoTickLogBatteria) >= BAT_LOG_INTERVAL_MS)
     {
-        snprintf(
-            uart,
-            sizeof(uart),
-            "[BAT] PC0=%u PE15pre=%u ADC=%lu min=%lu max=%lu "
-            "spread=%lu V=%lu.%03luV AC=%u Offset=%umV Tmcu=%ldC "
-            "Level=%u%% dt=%lus\r\n",
-            (unsigned int)misuraADC.statoPC0,
-            (unsigned int)misuraADC.statoPE15,
-            (unsigned long)acquisizione,
-            (unsigned long)misuraADC.minimo,
-            (unsigned long)misuraADC.massimo,
-            (unsigned long)misuraADC.dispersione,
-            (unsigned long)(tensioneMisurata_mV / 1000U),
-            (unsigned long)(tensioneMisurata_mV % 1000U),
-            (unsigned int)alimentatore,
-            (unsigned int)((alimentatore == 0) ? VBAT_DISCHARGE_OFFSET_MV : 0U),
-            temperaturaMCU,
-            (unsigned int)batteryLevel,
-            (unsigned long)tempoTrascorso_s
-        );
+        ultimoTickLogBatteria = tickAttuale;
+        logBatteriaInizializzato = 1U;
+
+        if(adcValido != 0)
+        {
+            snprintf(
+                uart,
+                sizeof(uart),
+                "[BAT] V=%lu.%03luV Level=%u%% AC=%u T=%ldC "
+                "State=%s Fault=%s Charge=%u Connected=%u\r\n",
+                (unsigned long)(tensioneMisurata_mV / 1000U),
+                (unsigned long)(tensioneMisurata_mV % 1000U),
+                (unsigned int)batteryLevel,
+                (unsigned int)alimentatore,
+                temperaturaMCU,
+                nomeStatoBatteria(statoCaricaBatteria),
+                nomeFaultBatteria(faultAttuale),
+                (unsigned int)comandoCarica,
+                (unsigned int)collegaBatteria
+            );
+        }
+        else
+        {
+            snprintf(
+                uart,
+                sizeof(uart),
+                "[BAT] V=INVALID AC=%u T=%ldC State=%s Fault=%s "
+                "Charge=%u Connected=%u\r\n",
+                (unsigned int)alimentatore,
+                temperaturaMCU,
+                nomeStatoBatteria(statoCaricaBatteria),
+                nomeFaultBatteria(faultAttuale),
+                (unsigned int)comandoCarica,
+                (unsigned int)collegaBatteria
+            );
+        }
+
+        HAL_UART_Transmit(&huart1, (u8 *)uart, strlen(uart), 300);
     }
-    else
-    {
-        snprintf(
-            uart,
-            sizeof(uart),
-            "[BAT] PC0=%u PE15pre=%u ADC=%lu min=%lu max=%lu "
-            "spread=%lu V=INVALID AC=%u Tmcu=%ldC dt=%lus\r\n",
-            (unsigned int)misuraADC.statoPC0,
-            (unsigned int)misuraADC.statoPE15,
-            (unsigned long)acquisizione,
-            (unsigned long)misuraADC.minimo,
-            (unsigned long)misuraADC.massimo,
-            (unsigned long)misuraADC.dispersione,
-            (unsigned int)alimentatore,
-            temperaturaMCU,
-            (unsigned long)tempoTrascorso_s
-        );
-    }
-
-    HAL_UART_Transmit(&huart1, (u8 *)uart, strlen(uart), 300);
-
-    snprintf(
-        uart,
-        sizeof(uart),
-        "[BAT] State=%s Fault=%s Session=%u Full=%u "
-        "PC1=%u PE15=%u Duty=%u%% StartCnt=%u StopCnt=%u "
-        "Ton=%lus Ttop=%lus\r\n",
-        nomeStatoBatteria(statoCaricaBatteria),
-        nomeFaultBatteria(faultAttuale),
-        (unsigned int)sessioneCaricaAttiva,
-        (unsigned int)caricaCompleta,
-        (unsigned int)comandoCarica,
-        (unsigned int)collegaBatteria,
-        (unsigned int)dutyPercentuale,
-        (unsigned int)contatoreAvvio,
-        (unsigned int)contatoreArresto,
-        (unsigned long)tempoTotaleCaricaOn_s,
-        (unsigned long)tempoTopCaricaOn_s
-    );
-
-    HAL_UART_Transmit(&huart1, (u8 *)uart, strlen(uart), 300);
 
     /* =============================================================
      * 10. GESTIONE DEGLI ALLARMI BATTERIA

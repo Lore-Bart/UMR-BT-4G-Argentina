@@ -27,6 +27,7 @@ extern u8 identificativo[16];
 //numeri
 extern u8 numeroAllarmi[20];
 extern u8 numeroDevice[20];
+extern u8 allarmiSMSattivi;
 
 //variabili temporali
 extern u32 myTimeVar;
@@ -149,7 +150,9 @@ int diff;
 				//invio SMS
 				sprintf(messaggio,"Alarm!\nthis cabinet could be open: ----------------\nlat: %.3f  long: %.3f",latitudineD,longitudineD);
 				copiaArray(&messaggio[35],&identificativo[0],16);
-				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(messaggio));
+				if(allarmiSMSattivi != 0){
+					inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(messaggio));
+				}
 				aggiungiIntrusioneDB(1);
 			}
 	}
@@ -201,7 +204,9 @@ void controlloAntifurto(void){
 			if(diff > sogliaAntifurto){
 				sprintf(messaggio,"Alarm!\n this cabinet has been opened: ----------------\nlat: %3f  long%3f",latitudineD,longitudineD);
 				copiaArray(&messaggio[38],&identificativo[0],16);
-				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],100);
+				if(allarmiSMSattivi != 0){
+					inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],100);
+				}
 				
 				//aggiungiDB
 				aggiungiIntrusioneDB(1);
@@ -306,7 +311,6 @@ void formattaTampering(void){
 	inviaDebug((u8*)"erase tampering events completed\n");
 	
 }
-
 
 
 

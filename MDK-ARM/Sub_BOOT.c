@@ -168,6 +168,7 @@ extern u8 debugDB;
 
 extern u8 NTPattivo;
 extern u8 addressNTP[50];
+extern u8 allarmiSMSattivi;
 
 int netCount = 0;
 
@@ -379,6 +380,12 @@ indirizzo[0] = 1; indirizzo[1] = 182;
 
 Ipot = 850;
 saveU32fram(Ipot,&indirizzo[0]);
+
+indirizzo[0] = SMS_ALARM_FRAM_PAGE;
+indirizzo[1] = SMS_ALARM_FRAM_OFFSET;
+data[0] = SMS_ALARM_FRAM_MARKER;
+data[1] = 1U;
+saveArrayFram(&data[0],&indirizzo[0],2);
 
 }
 
@@ -657,6 +664,28 @@ void avvioSistema(void){
 		
 		indirizzo[1] = 1;
 		ReadArrayFram(&addressNTP[0],&indirizzo[0],50);
+
+		/*
+		 * Abilitazione degli SMS automatici di allarme.
+		 * Il marcatore distingue una configurazione valida da una FRAM
+		 * appartenente a un dispositivo aggiornato da firmware precedenti.
+		 * In assenza del marcatore manteniamo il comportamento storico:
+		 * allarmi SMS abilitati.
+		 */
+		indirizzo[0] = SMS_ALARM_FRAM_PAGE;
+		indirizzo[1] = SMS_ALARM_FRAM_OFFSET;
+		ReadArrayFram(&data[0],&indirizzo[0],2);
+
+		if(data[0] == SMS_ALARM_FRAM_MARKER &&
+		   (data[1] == 0U || data[1] == 1U)){
+			allarmiSMSattivi = data[1];
+		}
+		else{
+			allarmiSMSattivi = 1U;
+			data[0] = SMS_ALARM_FRAM_MARKER;
+			data[1] = allarmiSMSattivi;
+			saveArrayFram(&data[0],&indirizzo[0],2);
+		}
 		
 	}
 
