@@ -57,14 +57,14 @@ long temperatura = 0;
  *
  * Dati ottenuti dalla calibrazione a due punti:
  *
- * Punto 1: ADC = 2415, tensione = 6800 mV
- * Punto 2: ADC = 2880, tensione = 8100 mV
+ * I conteggi sono normalizzati rispetto a VREFINT prima della conversione.
+ * I valori correnti restano validi finche non viene completata la nuova
+ * calibrazione universale a 6000 mV e 8100 mV.
  */
-#define VBAT_CAL_ADC_1                   2415L
-#define VBAT_CAL_MV_1                    6800L
-
-#define VBAT_CAL_ADC_2                   2880L
-#define VBAT_CAL_MV_2                    8100L
+#define VBAT_CAL_ADC_NORM_1    1917L
+#define VBAT_CAL_MV_1          6000L
+#define VBAT_CAL_ADC_NORM_2    2587L
+#define VBAT_CAL_MV_2          8100L
 
 
 /*
@@ -201,7 +201,7 @@ long temperatura = 0;
  */
 #define BAT_MAX_TOP_ON_TIME_S            (2UL * 60UL * 60UL)
 
-#define BAT_LOG_INTERVAL_MS               60000UL
+#define BAT_LOG_INTERVAL_MS               15000UL
 
 
 
@@ -219,6 +219,7 @@ static u8 bloccoTemperatura = 0;
 static u8 contatoreAvvio = 0;
 static u8 contatoreArresto = 0;
 static u8 contatoreDutyCycle = 0;
+static u8 contatoreWakeup = 0;
 
 static u32 tempoTotaleCaricaOn_s = 0;
 static u32 tempoTopCaricaOn_s = 0;
@@ -227,9 +228,18 @@ static u32 ultimoTickBatteria = 0;
 static u32 ultimoTickLogBatteria = 0;
 static u8 logBatteriaInizializzato = 0;
 
+u8 calibrazioneBatteriaRichiesta = 0;
+u8 calibrazioneBatteriaAttiva = 0;
+
+static u8 puntoCalibrazioneRichiesto = 0;
+static u32 tensioneCalibrazioneRichiesta_mV = 0;
+static u32 adcCalibrazioneRaw = 0;
+static u32 adcCalibrazioneVref = 0;
+static u32 adcCalibrazioneNormalizzato = 0;
+
 /*
- * Converte il valore ADC in millivolt tramite i due punti
- * ottenuti durante la calibrazione.
+ * Converte il valore ADC normalizzato tramite VREFINT in millivolt
+ * usando i due punti ottenuti durante la calibrazione universale.
  *
  * Formula:
  *
@@ -247,7 +257,7 @@ static u32 convertiAdcBatteria_mV(u32 adc)
 
     differenzaADC =
         (int64_t)adc -
-        (int64_t)VBAT_CAL_ADC_1;
+        (int64_t)VBAT_CAL_ADC_NORM_1;
 
     numeratore =
         differenzaADC *
@@ -257,8 +267,8 @@ static u32 convertiAdcBatteria_mV(u32 adc)
         );
 
     denominatore =
-        (int64_t)VBAT_CAL_ADC_2 -
-        (int64_t)VBAT_CAL_ADC_1;
+        (int64_t)VBAT_CAL_ADC_NORM_2 -
+        (int64_t)VBAT_CAL_ADC_NORM_1;
 
     /*
      * Arrotondamento all'intero pi vicino.
@@ -377,6 +387,9 @@ static const char *nomeStatoBatteria(BatteryState_t stato)
         case BAT_STATE_TOO_LOW:
             return "TOO_LOW";
 
+        case BAT_STATE_WAKEUP:
+            return "WAKEUP";
+
         case BAT_STATE_FAULT:
             return "FAULT";
 
@@ -441,6 +454,7 @@ void resetFaultCaricaBatteria(void)
     contatoreAvvio = 0;
     contatoreArresto = 0;
     contatoreDutyCycle = 0;
+    contatoreWakeup = 0;
 
     tempoTotaleCaricaOn_s = 0;
     tempoTopCaricaOn_s = 0;
@@ -449,72 +463,56 @@ void resetFaultCaricaBatteria(void)
 }
 
 
-static u32 acquisisciADCcalibrazioneBatteria(void)
+void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
 {
-    u32 sommaADC = 0;
-    u32 valoreADC;
-    u32 valoreMinimo = 0xFFFFFFFF;
-    u32 valoreMassimo = 0;
-    u32 mediaADC;
+    char uart[150];
 
-    u16 i;
-
-    /*
-     * Durante la calibrazione il caricatore deve restare sempre spento.
-     */
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
-    batteriaInCarica = 0;
-
-    /*
-     * Attiva il carico da 100 ohm e il partitore resistivo.
-     *
-     * In questo modo la calibrazione viene eseguita nelle stesse
-     * condizioni della normale misura della batteria.
-     */
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
-
-    /*
-     * Tempo di stabilizzazione.
-     */
-    delay(BAT_CAL_SETTLING_TIME_MS);
-
-    /*
-     * Acquisisce pi campioni per ridurre rumore e oscillazioni.
-     */
-    for(i = 0; i < BAT_CAL_ADC_SAMPLES; i++)
+    if((numeroPunto != 1U && numeroPunto != 2U) ||
+       tensioneMultimetro_mV < 5000U ||
+       tensioneMultimetro_mV > 8500U)
     {
-        valoreADC = acquisizioneADC(9);
-
-        sommaADC += valoreADC;
-
-        if(valoreADC < valoreMinimo)
-        {
-            valoreMinimo = valoreADC;
-        }
-
-        if(valoreADC > valoreMassimo)
-        {
-            valoreMassimo = valoreADC;
-        }
+        snprintf(
+            uart,
+            sizeof(uart),
+            "[BAT-CAL] ERRORE richiesta: punto=%u tensione=%lu mV\r\n",
+            (unsigned int)numeroPunto,
+            (unsigned long)tensioneMultimetro_mV
+        );
+        HAL_UART_Transmit(&huart1, (u8 *)uart, strlen(uart), 200);
+        return;
     }
 
-    /*
-     * Disattiva immediatamente il circuito di misura.
-     */
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+    if(calibrazioneBatteriaRichiesta != 0U ||
+       calibrazioneBatteriaAttiva != 0U)
+    {
+        HAL_UART_Transmit(
+            &huart1,
+            (u8 *)"[BAT-CAL] ERRORE: calibrazione gia in corso\r\n",
+            strlen("[BAT-CAL] ERRORE: calibrazione gia in corso\r\n"),
+            200
+        );
+        return;
+    }
 
-    /*
-     * Elimina il campione minimo e il campione massimo.
-     */
-    sommaADC -= valoreMinimo;
-    sommaADC -= valoreMassimo;
+    puntoCalibrazioneRichiesto = numeroPunto;
+    tensioneCalibrazioneRichiesta_mV = tensioneMultimetro_mV;
+    calibrazioneBatteriaRichiesta = 1U;
 
-    mediaADC = sommaADC / (BAT_CAL_ADC_SAMPLES - 2U);
-
-    return mediaADC;
+    snprintf(
+        uart,
+        sizeof(uart),
+        "[BAT-CAL] Richiesto punto %u a %lu.%03lu V\r\n",
+        (unsigned int)numeroPunto,
+        (unsigned long)(tensioneMultimetro_mV / 1000U),
+        (unsigned long)(tensioneMultimetro_mV % 1000U)
+    );
+    HAL_UART_Transmit(&huart1, (u8 *)uart, strlen(uart), 200);
 }
 
-void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
+static void elaboraCalibrazioneBatteria(
+    u8 numeroPunto,
+    u32 tensioneMultimetro_mV
+)
 {
     u32 adcMedio;
     double differenzaTensione;
@@ -522,7 +520,7 @@ void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
     double tensioneVerifica1;
     double tensioneVerifica2;
 
-    char uart[350];
+    char uart[600];
 
     /*
      * Controllo degli argomenti.
@@ -569,11 +567,7 @@ void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
         return;
     }
 
-    /*
-     * Acquisizione nelle normali condizioni di misura:
-     * PC1 spento, PC0 acceso, carico da 100 ohm inserito.
-     */
-    adcMedio = acquisisciADCcalibrazioneBatteria();
+    adcMedio = adcCalibrazioneNormalizzato;
 
     /*
      * Controllo di plausibilit dell'ADC.
@@ -623,9 +617,13 @@ void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
     snprintf(
         uart,
         sizeof(uart),
-        "[BAT-CAL] Punto %u acquisito: ADC=%lu, "
+        "[BAT-CAL] Punto %u: ADC_RAW=%lu ADC_VREF=%lu "
+        "VREF_CAL=%u ADC_NORM=%lu, "
         "Vmultimetro=%lu.%03lu V\r\n",
         (unsigned int)numeroPunto,
+        (unsigned long)adcCalibrazioneRaw,
+        (unsigned long)adcCalibrazioneVref,
+        (unsigned int)(*((volatile const u16 *)0x1FFF7A2AUL)),
         (unsigned long)adcMedio,
         (unsigned long)(tensioneMultimetro_mV / 1000U),
         (unsigned long)(tensioneMultimetro_mV % 1000U)
@@ -749,14 +747,16 @@ void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
         sizeof(uart),
         "\r\n"
         "[BAT-CAL] CALIBRAZIONE COMPLETATA\r\n"
-        "[BAT-CAL] Punto 1: ADC=%lu, V=%lu mV\r\n"
-        "[BAT-CAL] Punto 2: ADC=%lu, V=%lu mV\r\n"
+        "[BAT-CAL] Punto 1: ADC_NORM=%lu, V=%lu mV\r\n"
+        "[BAT-CAL] Punto 2: ADC_NORM=%lu, V=%lu mV\r\n"
         "[BAT-CAL] Coefficiente: %.9f mV/count\r\n"
         "[BAT-CAL] Offset: %.3f mV\r\n"
         "[BAT-CAL] Verifica: V1=%.3f mV, V2=%.3f mV\r\n"
         "\r\n"
-        "#define VBAT_ADC_GAIN_MV       %.9f\r\n"
-        "#define VBAT_ADC_OFFSET_MV     %.3f\r\n"
+        "#define VBAT_CAL_ADC_NORM_1    %luL\r\n"
+        "#define VBAT_CAL_MV_1          %luL\r\n"
+        "#define VBAT_CAL_ADC_NORM_2    %luL\r\n"
+        "#define VBAT_CAL_MV_2          %luL\r\n"
         "\r\n",
         (unsigned long)calibrazioneBatteria.adcPunto1,
         (unsigned long)calibrazioneBatteria.tensionePunto1_mV,
@@ -770,8 +770,10 @@ void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV)
         tensioneVerifica1,
         tensioneVerifica2,
 
-        calibrazioneBatteria.coefficiente_mV_count,
-        calibrazioneBatteria.offset_mV
+        (unsigned long)calibrazioneBatteria.adcPunto1,
+        (unsigned long)calibrazioneBatteria.tensionePunto1_mV,
+        (unsigned long)calibrazioneBatteria.adcPunto2,
+        (unsigned long)calibrazioneBatteria.tensionePunto2_mV
     );
 
     HAL_UART_Transmit(
@@ -915,13 +917,110 @@ u32 controllaBatteriaProva5(void){
 typedef struct
 {
     u32 media;
+    u32 mediaRaw;
+    u32 adcVref;
     u32 minimo;
     u32 massimo;
     u32 dispersione;
     u8 valida;
+    u8 pronta;
     GPIO_PinState statoPC0;
     GPIO_PinState statoPE15;
 } BatteryAdcMeasurement_t;
+
+/*
+ * Acquisisce VREFINT nella stessa sessione della batteria.
+ * Il valore viene usato insieme alla calibrazione individuale ST
+ * per riferire il conteggio della batteria a VDDA = 3,3 V.
+ */
+static u8 acquisisciVrefBatteria(u32 *adcVref)
+{
+    ADC_ChannelConfTypeDef sConfig;
+    u32 somma = 0U;
+    u8 i;
+
+    ADC->CCR |= ADC_CCR_TSVREFE;
+
+    sConfig.Channel = ADC_CHANNEL_VREFINT;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+
+    if(HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+    {
+        return 0U;
+    }
+
+    /* Prima conversione scartata dopo il cambio canale. */
+    if(HAL_ADC_Start(&hadc1) != HAL_OK)
+    {
+        return 0U;
+    }
+
+    if(HAL_ADC_PollForConversion(&hadc1, 5U) != HAL_OK)
+    {
+        HAL_ADC_Stop(&hadc1);
+        return 0U;
+    }
+
+    (void)HAL_ADC_GetValue(&hadc1);
+    HAL_ADC_Stop(&hadc1);
+
+    for(i = 0U; i < 8U; i++)
+    {
+        if(HAL_ADC_Start(&hadc1) != HAL_OK)
+        {
+            return 0U;
+        }
+
+        if(HAL_ADC_PollForConversion(&hadc1, 5U) != HAL_OK)
+        {
+            HAL_ADC_Stop(&hadc1);
+            return 0U;
+        }
+
+        somma += HAL_ADC_GetValue(&hadc1);
+        HAL_ADC_Stop(&hadc1);
+    }
+
+    *adcVref = somma / 8U;
+
+    if(*adcVref == 0U || *adcVref >= 4095U)
+    {
+        return 0U;
+    }
+
+    return 1U;
+}
+
+/*
+ * Attesa non bloccante basata su HAL_GetTick().
+ *
+ * Alla prima chiamata memorizza l'istante iniziale e restituisce 0.
+ * Le chiamate successive restituiscono 0 fino alla scadenza e 1 quando
+ * il tempo richiesto e trascorso. La sottrazione unsigned gestisce
+ * correttamente anche il rollover di HAL_GetTick().
+ */
+static u8 delayNonBloccante(
+    u32 durata_ms,
+    u32 *tickInizio,
+    u8 *attesaAttiva
+)
+{
+    if(*attesaAttiva == 0U)
+    {
+        *tickInizio = HAL_GetTick();
+        *attesaAttiva = 1U;
+        return 0U;
+    }
+
+    if((HAL_GetTick() - *tickInizio) < durata_ms)
+    {
+        return 0U;
+    }
+
+    *attesaAttiva = 0U;
+    return 1U;
+}
 
 /*
  * Misura la batteria nelle stesse condizioni usate per la calibrazione.
@@ -930,45 +1029,65 @@ typedef struct
  * 1. spegne la carica (PC1 = 0);
  * 2. con alimentatore presente richiude PE15, cosi un precedente errore
  *    non puo lasciare il ramo di misura isolato in modo permanente;
- * 3. attiva PC0, attende la stabilizzazione e scarta la prima conversione;
- * 4. acquisisce piu campioni, elimina minimo e massimo e calcola la media;
- * 5. disattiva PC0.
+ * 3. attiva PC0 e restituisce subito il controllo al ciclo principale;
+ * 4. dopo BAT_MEASURE_DELAY millisecondi scarta la prima conversione;
+ * 5. acquisisce piu campioni, elimina minimo e massimo e calcola la media;
+ * 6. disattiva PC0.
  */
 static BatteryAdcMeasurement_t misuraAdcBatteria(void)
 {
+    static u8 misuraInCorso = 0U;
+    static u8 attesaMisuraAttiva = 0U;
+    static u32 tickInizioMisura = 0U;
+
     BatteryAdcMeasurement_t risultato;
     u32 somma = 0;
     u32 campione;
     u8 i;
 
     risultato.media = 0;
+    risultato.mediaRaw = 0;
+    risultato.adcVref = 0;
     risultato.minimo = 0xFFFFFFFFU;
     risultato.massimo = 0;
     risultato.dispersione = 0;
     risultato.valida = 0;
+    risultato.pronta = 0;
     risultato.statoPC0 = GPIO_PIN_RESET;
     risultato.statoPE15 = GPIO_PIN_RESET;
 
-    /* La carica deve essere disabilitata durante tutta la misura. */
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
-    batteriaInCarica = 0;
-
-    /*
-     * Con alimentatore presente richiudiamo PE15 prima della misura.
-     * Questo permette il recupero automatico dopo un precedente fault ADC.
-     */
-    if(alimentatore != 0)
+    if(misuraInCorso == 0U)
     {
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
-        delay(50);
+        /* La carica deve essere disabilitata durante tutta la misura. */
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+        batteriaInCarica = 0;
+
+        /*
+         * Con alimentatore presente richiudiamo PE15 prima della misura.
+         * L'intera stabilizzazione di PE15 e PC0 avviene nella finestra
+         * non bloccante BAT_MEASURE_DELAY.
+         */
+        if(alimentatore != 0)
+        {
+            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+        }
+
+        /* Attiva il carico da 100 ohm e il partitore di misura. */
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+        misuraInCorso = 1U;
     }
 
     risultato.statoPE15 = HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_15);
-
-    /* Attiva il carico da 100 ohm e il partitore di misura. */
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
     risultato.statoPC0 = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_0);
-    delay(BAT_MEASURE_DELAY);
+
+    if(delayNonBloccante(
+           (u32)BAT_MEASURE_DELAY,
+           &tickInizioMisura,
+           &attesaMisuraAttiva
+       ) == 0U)
+    {
+        return risultato;
+    }
 
     /* Prima conversione di scarto dopo la selezione del canale ADC. */
     (void)acquisizioneADC(9);
@@ -989,15 +1108,49 @@ static BatteryAdcMeasurement_t misuraAdcBatteria(void)
         }
     }
 
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
-
     risultato.dispersione = risultato.massimo - risultato.minimo;
 
     somma -= risultato.minimo;
     somma -= risultato.massimo;
     risultato.media = somma / (BAT_ADC_SAMPLES - 2U);
+    risultato.mediaRaw = risultato.media;
 
-    if(risultato.media >= BAT_ADC_MIN_VALID &&
+    if(acquisisciVrefBatteria(&risultato.adcVref) != 0U)
+    {
+        u16 vrefCal;
+
+        vrefCal = *((volatile const u16 *)0x1FFF7A2AUL);
+
+        if(vrefCal != 0U)
+        {
+            risultato.media =
+                (u32)
+                (
+                    (
+                        (uint64_t)risultato.mediaRaw *
+                        (uint64_t)vrefCal +
+                        ((uint64_t)risultato.adcVref / 2ULL)
+                    ) /
+                    (uint64_t)risultato.adcVref
+                );
+        }
+        else
+        {
+            risultato.adcVref = 0U;
+        }
+    }
+
+    /*
+     * VREFINT viene acquisita prima di rimuovere il carico, cosi la
+     * compensazione rappresenta le stesse condizioni elettriche della
+     * misura batteria. PC0 viene poi disattivato immediatamente.
+     */
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+    misuraInCorso = 0U;
+    risultato.pronta = 1U;
+
+    if(risultato.adcVref != 0U &&
+       risultato.media >= BAT_ADC_MIN_VALID &&
        risultato.media <= BAT_ADC_MAX_VALID &&
        risultato.dispersione <= BAT_ADC_MAX_SPREAD)
     {
@@ -1007,7 +1160,59 @@ static BatteryAdcMeasurement_t misuraAdcBatteria(void)
     return risultato;
 }
 
-void controllaBatteria(void)
+void gestisciCalibrazioneBatteria(void)
+{
+    BatteryAdcMeasurement_t misura;
+
+    if(calibrazioneBatteriaRichiesta == 0U &&
+       calibrazioneBatteriaAttiva == 0U)
+    {
+        return;
+    }
+
+    if(calibrazioneBatteriaAttiva == 0U)
+    {
+        calibrazioneBatteriaRichiesta = 0U;
+        calibrazioneBatteriaAttiva = 1U;
+
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+        batteriaInCarica = 0U;
+    }
+
+    misura = misuraAdcBatteria();
+
+    if(misura.pronta == 0U)
+    {
+        return;
+    }
+
+    adcCalibrazioneRaw = misura.mediaRaw;
+    adcCalibrazioneVref = misura.adcVref;
+    adcCalibrazioneNormalizzato = misura.media;
+
+    if(misura.adcVref == 0U ||
+       misura.media == 0U ||
+       misura.media >= 4095U)
+    {
+        HAL_UART_Transmit(
+            &huart1,
+            (u8 *)"[BAT-CAL] ERRORE acquisizione ADC/VREF\r\n",
+            strlen("[BAT-CAL] ERRORE acquisizione ADC/VREF\r\n"),
+            200
+        );
+    }
+    else
+    {
+        elaboraCalibrazioneBatteria(
+            puntoCalibrazioneRichiesto,
+            tensioneCalibrazioneRichiesta_mV
+        );
+    }
+
+    calibrazioneBatteriaAttiva = 0U;
+}
+
+u8 controllaBatteria(void)
 {
     BatteryAdcMeasurement_t misuraADC;
     u32 acquisizione;
@@ -1015,8 +1220,11 @@ void controllaBatteria(void)
     u32 tickAttuale;
     u32 tempoTrascorso_s;
     long temperaturaMCU;
+    long temperaturaRapida;
 
     u8 adcValido;
+    u8 batteriaNonRilevata = 0;
+    u8 recuperoNecessario = 0;
     u8 temperaturaValida = 1;
     u8 comandoCarica = 0;
     u8 collegaBatteria = 1;
@@ -1053,12 +1261,58 @@ void controllaBatteria(void)
         }
     }
 
-    ultimoTickBatteria = tickAttuale;
+    /*
+     * Durante il recupero la batteria viene misurata una sola volta
+     * ogni 45 s, al termine dei 30 s di carica.
+     *
+     * contatoreWakeup:
+     *   0 = trascorsi 15 s senza carica: avvia i 30 s di carica;
+     *   1 = trascorsi i primi 15 s di carica: prosegue senza inserire PC0;
+     *   2 = trascorsi 30 s di carica: esegue la misura completa qui sotto.
+     *
+     * Nei passaggi senza misura batteria viene comunque controllato l'ADC
+     * tramite VREFINT e sensore di temperatura interno.
+     */
+    if(statoCaricaBatteria == BAT_STATE_WAKEUP &&
+       faultCaricaLatched == BAT_FAULT_NONE &&
+       alimentatore != 0 &&
+       contatoreWakeup < 2U)
+    {
+        temperaturaRapida = acquisizioneTemp();
+
+        if(temperaturaRapida >= TEMP_SENSOR_MIN_VALID_C &&
+           temperaturaRapida <= TEMP_SENSOR_MAX_VALID_C &&
+           temperaturaRapida < TEMP_MCU_CHARGE_MAX_C)
+        {
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_SET);
+
+            batteriaInCarica = 1;
+            contatoreWakeup++;
+            ultimoTickBatteria = tickAttuale;
+            return 1U;
+        }
+
+        /*
+         * Diagnostica ADC o temperatura non valida: interrompe subito
+         * la carica e prosegue con il controllo completo.
+         */
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+        batteriaInCarica = 0;
+    }
 
     /* =============================================================
      * 2. MISURA DELLA BATTERIA
      * ============================================================= */
     misuraADC = misuraAdcBatteria();
+
+    if(misuraADC.pronta == 0U)
+    {
+        return 0U;
+    }
+
+    ultimoTickBatteria = tickAttuale;
     acquisizione = misuraADC.media;
     adcValido = misuraADC.valida;
 
@@ -1120,6 +1374,20 @@ void controllaBatteria(void)
         temperaturaValida = 0;
     }
 
+    /*
+     * Una misura bassa ma stabile non indica necessariamente un guasto ADC:
+     * puo essere una batteria assente oppure una batteria in protezione per
+     * sovrascarica. La misura interna di VREFINT e temperatura, eseguita da
+     * acquisizioneTemp(), fornisce una verifica indipendente dell'ADC.
+     */
+    if(adcValido == 0 &&
+       acquisizione < BAT_ADC_MIN_VALID &&
+       misuraADC.dispersione <= BAT_ADC_MAX_SPREAD &&
+       temperaturaValida != 0)
+    {
+        batteriaNonRilevata = 1;
+    }
+
     /* Isteresi del blocco termico del microcontrollore. */
     if(temperaturaValida == 0)
     {
@@ -1135,6 +1403,16 @@ void controllaBatteria(void)
     else if(temperaturaMCU >= TEMP_MCU_CHARGE_MAX_C)
     {
         bloccoTemperatura = 1;
+    }
+
+    if(alimentatore != 0 &&
+       temperaturaValida != 0 &&
+       bloccoTemperatura == 0 &&
+       (batteriaNonRilevata != 0 ||
+        (adcValido != 0 &&
+         tensioneMisurata_mV < VBAT_MIN_AUTOMATIC_CHARGE_MV)))
+    {
+        recuperoNecessario = 1;
     }
 
     statoPrecedente = statoCaricaBatteria;
@@ -1161,6 +1439,30 @@ void controllaBatteria(void)
         comandoCarica = 0;
         dutyPercentuale = 0;
     }
+    else if(recuperoNecessario != 0)
+    {
+        /*
+         * Recupero senza limite complessivo:
+         * due intervalli da 15 s con carica attiva, seguiti da un
+         * intervallo da 15 s senza carica. La misura mantiene PC0
+         * collegato soltanto per BAT_MEASURE_DELAY (400 ms).
+         */
+        statoCaricaBatteria = BAT_STATE_WAKEUP;
+        faultAttuale = BAT_FAULT_NONE;
+        sessioneCaricaAttiva = 0;
+        caricaCompleta = 0;
+        contatoreAvvio = 0;
+        contatoreArresto = 0;
+        dutyPercentuale = 67;
+
+        comandoCarica = (contatoreWakeup < 2U) ? 1U : 0U;
+        contatoreWakeup++;
+
+        if(contatoreWakeup >= 3U)
+        {
+            contatoreWakeup = 0;
+        }
+    }
     else if(adcValido == 0)
     {
         /* Fault transitorio: al prossimo ciclo la misura viene riprovata. */
@@ -1168,6 +1470,7 @@ void controllaBatteria(void)
         faultAttuale = BAT_FAULT_ADC;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        contatoreWakeup = 0;
     }
     else if(temperaturaValida == 0)
     {
@@ -1175,12 +1478,14 @@ void controllaBatteria(void)
         faultAttuale = BAT_FAULT_TEMPERATURE_SENSOR;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        contatoreWakeup = 0;
     }
     else if(alimentatore == 0)
     {
         statoCaricaBatteria = BAT_STATE_NO_SUPPLY;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        contatoreWakeup = 0;
     }
     else if(tensioneMisurata_mV < VBAT_MIN_AUTOMATIC_CHARGE_MV)
     {
@@ -1191,6 +1496,7 @@ void controllaBatteria(void)
         contatoreAvvio = 0;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        contatoreWakeup = 0;
     }
     else if(bloccoTemperatura != 0)
     {
@@ -1200,6 +1506,8 @@ void controllaBatteria(void)
     }
     else
     {
+        contatoreWakeup = 0;
+
         /* Dopo FULL si riparte solo sotto 7,75 V per tre misure. */
         if(caricaCompleta != 0)
         {
@@ -1342,7 +1650,8 @@ void controllaBatteria(void)
     /* =============================================================
      * 6. TIMER DI SICUREZZA
      * ============================================================= */
-    if(comandoCarica != 0)
+    if(comandoCarica != 0 &&
+       statoCaricaBatteria != BAT_STATE_WAKEUP)
     {
         tempoTotaleCaricaOn_s += tempoTrascorso_s;
 
@@ -1548,6 +1857,8 @@ void controllaBatteria(void)
         messaggioBatteria = 2;
         saveArrayFram(&messaggioBatteria, &addressFram[0], 1);
     }
+
+    return 1U;
 }
 
 long acquisizioneTemp(void)

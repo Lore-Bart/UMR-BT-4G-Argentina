@@ -126,6 +126,8 @@ extern u8 controlloBatteriaFlag;
 extern u8 spegniLed;
 extern u32 sniff32;
 extern u8 batteryLevel;
+extern u8 calibrazioneBatteriaRichiesta;
+extern u8 calibrazioneBatteriaAttiva;
 extern long tempo;
 extern u8 salvaSeriale;
 extern u8 univoco[5];
@@ -615,9 +617,17 @@ int mymain(void){
 			checkOverVoltage();
 		}
 		
-		if(controlloBatteriaFlag == 1){
-			controllaBatteria();
-			controlloBatteriaFlag = 0;
+		if(calibrazioneBatteriaAttiva != 0 ||
+		   (calibrazioneBatteriaRichiesta != 0 &&
+		    controlloBatteriaFlag == 0)){
+			gestisciCalibrazioneBatteria();
+		}
+
+		if(controlloBatteriaFlag == 1 &&
+		   calibrazioneBatteriaAttiva == 0){
+			if(controllaBatteria() != 0){
+				controlloBatteriaFlag = 0;
+			}
 		}
 		
 		//produzione

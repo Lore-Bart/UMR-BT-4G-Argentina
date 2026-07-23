@@ -551,7 +551,7 @@ void eseguiComandoTest(uint8_t *messaggio){
 				break;
 			
 			case 0x77:
-				calibraTensioneBatteria(1, 6800);
+				calibraTensioneBatteria(1, 6000);
 				break;
 			case 0x78:
 				calibraTensioneBatteria(2, 8100);

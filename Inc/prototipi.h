@@ -17,9 +17,6 @@
 #define SMS_ALARM_FRAM_OFFSET         51U
 #define SMS_ALARM_FRAM_MARKER         0xA5U
 
-#define BAT_CAL_ADC_SAMPLES          64U
-#define BAT_CAL_SETTLING_TIME_MS     400U
-
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -55,6 +52,7 @@ typedef enum
     BAT_STATE_FULL,
     BAT_STATE_WAIT_TEMPERATURE,
     BAT_STATE_TOO_LOW,
+    BAT_STATE_WAKEUP,
     BAT_STATE_FAULT
 } BatteryState_t;
 
@@ -195,7 +193,7 @@ void ultimoNeutro(u8 *outBuf);
 void ultimoGuasto(u8 *outBuf);
 void downloadIntrusioni(void);
 u8 multiplocinque(int dato);
-void controllaBatteria(void);
+u8 controllaBatteria(void);
 u32 acquisizioneADC(int channel);
 void controlloAntifurtoProva(void);
 void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset);
@@ -336,7 +334,7 @@ void produzioneFun(void);
 
 void controllaBatteriaProva2(void);
 void calibraTensioneBatteria(u8 numeroPunto, u32 tensioneMultimetro_mV);
-static u32 acquisisciADCcalibrazioneBatteria(void);
+void gestisciCalibrazioneBatteria(void);
 void resetFaultCaricaBatteria(void);
 static u32 convertiAdcBatteria_mV(u32 adc);
 static u8 calcolaLivelloBatteria(u32 tensione_mV);
