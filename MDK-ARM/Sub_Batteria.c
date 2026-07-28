@@ -55,11 +55,25 @@ long temperatura = 0;
  * CALIBRAZIONE BATTERIA
  * ================================================================
  *
- * Dati ottenuti dalla calibrazione a due punti:
+ * La conversione usa una retta passante per due punti:
  *
- * I conteggi sono normalizzati rispetto a VREFINT prima della conversione.
- * I valori correnti restano validi finche non viene completata la nuova
- * calibrazione universale a 6000 mV e 8100 mV.
+ *   (VBAT_CAL_ADC_NORM_1, VBAT_CAL_MV_1)
+ *   (VBAT_CAL_ADC_NORM_2, VBAT_CAL_MV_2)
+ *
+ * ADC_NORM e il conteggio ADC gia compensato tramite VREFINT; MV e la
+ * tensione reale applicata all'ingresso batteria, espressa in millivolt.
+ *
+ * Vincoli da rispettare:
+ * - i due ADC_NORM devono essere diversi, altrimenti si divide per zero;
+ * - per una caratteristica crescente usare ADC_NORM_1 < ADC_NORM_2 e
+ *   MV_1 < MV_2;
+ * - usare valori positivi ottenuti con la stessa scheda e con la stessa
+ *   sequenza di misura usata dal firmware;
+ * - i punti devono racchiudere, per quanto possibile, il campo di lavoro.
+ *
+ * Non modificare un solo valore: ogni punto e sempre una coppia ADC/mV.
+ * Queste costanti sono signed long, ma tensioni o conteggi negativi non
+ * hanno significato fisico in questa applicazione.
  */
 #define VBAT_CAL_ADC_NORM_1    1917L
 #define VBAT_CAL_MV_1          6000L
@@ -68,37 +82,67 @@ long temperatura = 0;
 
 
 /*
- * Correzione empirica applicata esclusivamente quando l'alimentatore
+ * Offset, in millivolt, sommato esclusivamente quando l'alimentatore
  * principale e assente (alimentatore == 0).
  *
- * In questa condizione la tensione letta risulta circa 345 mV piu bassa,
- * verosimilmente per la caduta su un diodo presente nel percorso
- * di alimentazione da batteria.
+ * Compensa la caduta del percorso di alimentazione da batteria e NON
+ * viene applicato durante la carica o con rete presente.
  *
- * La correzione NON viene applicata durante la carica o con AC presente,
- * perche la calibrazione principale e gia stata verificata in quel caso.
+ * Valori ammessi dal tipo: 0 ... 4294967295 mV; intervallo pratico:
+ * poche centinaia di mV. Un valore troppo alto falsifica percentuale,
+ * allarmi e protezione di sottotensione durante il funzionamento a
+ * batteria. Tararlo confrontando la misura con e senza rete a parita
+ * di tensione reale e percorso elettrico.
  */
-#define VBAT_DISCHARGE_OFFSET_MV          345U
+#define VBAT_DISCHARGE_OFFSET_MV          445U
 
 
 /* ================================================================
  * PARAMETRI DELLA MISURA
- * ================================================================ */
-
+ * ================================================================
+ *
+ * Numero di conversioni rapide del canale batteria. Il minimo e 3,
+ * perche firmware elimina il campione minimo e massimo e divide per
+ * BAT_ADC_SAMPLES - 2. Il contatore e u8: non superare 255.
+ * Aumentarlo migliora la media ma allunga la fase ADC.
+ */
 #define BAT_ADC_SAMPLES                  16U
-#define BAT_MEASURE_DELAY               400L
 
 /*
- * Massima dispersione ammessa fra minimo e massimo ADC.
+ * Tempo, in millisecondi, durante il quale PC0 e il circuito di misura
+ * restano inseriti prima di leggere l'ADC. L'attesa e non bloccante.
+ *
+ * Valore tecnico: 0 ... 4294967295 ms; usare un valore positivo e,
+ * normalmente, molto inferiore al periodo di controllo di 15 s.
+ * Un valore troppo basso non consente l'assestamento; uno troppo alto
+ * scarica inutilmente la batteria sul carico di misura da circa 100 ohm.
+ * Se cambia, verificare che la calibrazione resti valida.
+ */
+#define BAT_MEASURE_DELAY               250L
+
+/*
+ * Massima dispersione ammessa fra minimo e massimo dei campioni ADC
+ * grezzi acquisiti nella stessa misura.
  *
  * 80 count equivalgono a circa 224 mV.
- *  un limite volutamente largo, utile per rilevare misure
- * chiaramente instabili.
+ * Intervallo utile: 0 ... 4095 count. Ridurlo rende il controllo piu
+ * severo ma puo produrre fault ADC durante disturbi o picchi di carico;
+ * aumentarlo accetta misure meno stabili.
  */
 #define BAT_ADC_MAX_SPREAD               80U
 
 /*
- * Limiti di plausibilit del valore ADC.
+ * Limiti inclusivi di plausibilita del valore ADC normalizzato VREFINT.
+ * Devono rispettare:
+ *
+ *   0 <= BAT_ADC_MIN_VALID < BAT_ADC_MAX_VALID
+ *
+ * Il limite hardware dell'ADC a 12 bit e 4095; il valore normalizzato
+ * puo differire leggermente dal grezzo, quindi lasciare margine attorno
+ * al campo prodotto dalla calibrazione. Se MIN e troppo basso, una
+ * batteria assente/in protezione puo sembrare valida; se e troppo alto,
+ * il WAKEUP puo essere avviato piu spesso. Un MAX troppo basso rifiuta
+ * batterie cariche, uno troppo alto riduce la capacita diagnostica.
  */
 #define BAT_ADC_MIN_VALID                1000U
 #define BAT_ADC_MAX_VALID                3500U
@@ -106,58 +150,276 @@ long temperatura = 0;
 
 /* ================================================================
  * SOGLIE DI TENSIONE
- * ================================================================ */
+ * ================================================================
+ *
+ * Tutte le tensioni sono espresse in millivolt e confrontate con la
+ * tensione calcolata dopo calibrazione (e, senza rete, dopo l'offset).
+ *
+ * Ordinamento raccomandato per la configurazione attuale:
+ *
+ *   VBAT_MIN_AUTOMATIC_CHARGE_MV
+ *      <= VBAT_DISCONNECT_MV
+ *      < VBAT_RECHARGE_MV
+ *      <= BAT_PLATEAU_MIN_MV
+ *      < VBAT_CHARGE_STOP_MV
+ *      < VBAT_OVERVOLTAGE_FAULT_MV
+ *
+ * MIN e DISCONNECT possono essere uguali, come ora. Se DISCONNECT viene
+ * alzata, il dispositivo si spegnera prima durante il funzionamento a
+ * batteria; se viene abbassata sotto MIN, si ammette una scarica piu
+ * profonda di quella da cui parte il WAKEUP.
+ */
 
 /*
- * Sotto questa tensione la carica automatica non viene avviata.
- * La batteria viene anche scollegata dal carico.
+ * Soglia, in mV, sotto la quale con rete presente viene usata la carica
+ * di recupero WAKEUP (30 s ON e 15 s OFF). Deve essere inferiore a
+ * VBAT_RECHARGE_MV. Non impostarla sotto il limite sicuro della batteria.
  */
 #define VBAT_MIN_AUTOMATIC_CHARGE_MV     6000U
 
 /*
- * Quando manca l'alimentatore, sotto questa tensione PE15
- * scollega la batteria.
+ * Soglia, in mV, sotto la quale, senza rete, PE15 scollega la batteria
+ * dopo la conferma definita da BAT_UNDERVOLTAGE_CONFIRM_DELAY_MS.
+ *
+ * Con rete presente questa soglia non apre PE15: sotto
+ * VBAT_MIN_AUTOMATIC_CHARGE_MV deve infatti essere possibile eseguire
+ * il WAKEUP. Valore pratico: compreso nel campo affidabile della retta
+ * di calibrazione e coerente con il limite di sovrascarica della batteria.
  */
-#define VBAT_DISCONNECT_MV               6800U
+#define VBAT_DISCONNECT_MV               6650U
 
 /*
- * Una nuova sessione di carica pu iniziare soltanto sotto 7,75 V.
+ * Soglia, in mV, sotto la quale puo iniziare una nuova sessione normale.
+ * Sono richieste BAT_START_CONFIRM_COUNT misure consecutive.
+ *
+ * Deve essere maggiore di VBAT_MIN_AUTOMATIC_CHARGE_MV e minore di
+ * VBAT_CHARGE_STOP_MV. La differenza STOP - RECHARGE e l'isteresi che
+ * impedisce continue ripartenze vicino alla tensione finale.
  */
-#define VBAT_RECHARGE_MV                 7750U
+#define VBAT_RECHARGE_MV                 7900U
 
 /*
- * Inizio della carica pulsata al 50%.
+ * Abilita la riduzione della corrente media nelle fasce finali:
+ *   0 = carica continua fino alla soglia di arresto;
+ *   1 = carica pulsata al 50% e al 25% alle soglie configurate.
+ *
+ * Usare esclusivamente 0 oppure 1. Con valore 0, VBAT_TOP_50_MV,
+ * VBAT_TOP_25_MV e BAT_MAX_TOP_ON_TIME_S non influenzano la carica.
+ * Inoltre il riconoscimento del plateau e attivo soltanto con carica
+ * pulsata disabilitata.
  */
-#define VBAT_TOP_50_MV                   7900U
+#define BAT_PULSED_CHARGE_ENABLED        0U
 
 /*
- * Inizio della carica pulsata al 25%.
+ * Soglia, in mV, da cui inizia la carica pulsata al 50%.
+ * Usata solo se BAT_PULSED_CHARGE_ENABLED == 1.
  */
-#define VBAT_TOP_25_MV                   8000U
+#define VBAT_TOP_50_MV                   7950U
 
 /*
- * Arresto normale della carica.
+ * Soglia, in mV, da cui inizia la carica pulsata al 25%.
+ * Usata solo se BAT_PULSED_CHARGE_ENABLED == 1.
+ *
+ * Se si abilita la carica pulsata deve valere:
+ *
+ *   VBAT_RECHARGE_MV < VBAT_TOP_50_MV
+ *                    < VBAT_TOP_25_MV
+ *                    < VBAT_CHARGE_STOP_MV
+ *
+ * ATTENZIONE: con i valori attuali TOP_25 (8050 mV) e maggiore di STOP
+ * (8000 mV), quindi lo stato TOP_25 non sarebbe raggiungibile. Non e un
+ * problema finche BAT_PULSED_CHARGE_ENABLED resta a 0; prima di porlo
+ * a 1 occorre abbassare TOP_25 o alzare, con adeguata verifica hardware,
+ * la soglia STOP.
  */
-#define VBAT_CHARGE_STOP_MV              8070U
+#define VBAT_TOP_25_MV                   8050U
 
 /*
- * Fault di sovratensione.
+ * Soglia, in mV, di arresto normale della carica. Sono richieste
+ * BAT_STOP_CONFIRM_COUNT misure consecutive a questa tensione o oltre.
+ *
+ * Deve essere maggiore di VBAT_RECHARGE_MV e minore della soglia di
+ * overvoltage. Se viene posta sotto BAT_PLATEAU_MIN_MV, il controllo
+ * plateau non potra mai accumulare campioni.
+ */
+#define VBAT_CHARGE_STOP_MV              8000U
+
+/*
+ * Arresto alternativo per plateau della tensione.
+ *
+ * BAT_PLATEAU_TERMINATION_ENABLED:
+ *   0 = controllo completamente disabilitato;
+ *   1 = controllo abilitato.
+ * Usare solo 0 o 1. Il controllo viene comunque escluso automaticamente
+ * quando BAT_PULSED_CHARGE_ENABLED == 1.
+ *
+ * BAT_PLATEAU_MIN_MV:
+ *   limite inferiore della finestra di tensione; deve essere minore di
+ *   VBAT_CHARGE_STOP_MV e, normalmente, non inferiore a
+ *   VBAT_RECHARGE_MV. Il controllo opera da MIN incluso a STOP escluso.
+ *
+ * BAT_PLATEAU_SAMPLES:
+ *   numero totale di misure nella finestra mobile. Con una misura ogni
+ *   15 s, 40 campioni corrispondono a circa 10 minuti. Deve essere
+ *   compreso fra 1 e 255 perche indici e contatori sono u8.
+ *
+ * BAT_PLATEAU_AVERAGE_SAMPLES:
+ *   campioni usati per ciascuna media, all'inizio e alla fine della
+ *   finestra. Deve essere almeno 1 e non maggiore di PLATEAU_SAMPLES.
+ *   E raccomandato: 2 * AVERAGE_SAMPLES <= PLATEAU_SAMPLES, per evitare
+ *   la sovrapposizione delle due medie.
+ *
+ * BAT_PLATEAU_MAX_RISE_MV:
+ *   massimo aumento ammesso fra media iniziale e finale. Un valore piu
+ *   basso rende piu difficile riconoscere il plateau.
+ *
+ * BAT_PLATEAU_MAX_SPAN_MV:
+ *   massima differenza fra il minimo e il massimo dell'intera finestra.
+ *   Deve essere almeno pari al rumore reale della misura. Se e troppo
+ *   basso il plateau non viene mai riconosciuto; se e troppo alto si
+ *   rischia un arresto prematuro.
+ */
+#define BAT_PLATEAU_TERMINATION_ENABLED  1U
+#define BAT_PLATEAU_MIN_MV               7920U
+#define BAT_PLATEAU_SAMPLES              40U
+#define BAT_PLATEAU_AVERAGE_SAMPLES      4U
+#define BAT_PLATEAU_MAX_RISE_MV          10U
+#define BAT_PLATEAU_MAX_SPAN_MV          20U
+
+/*
+ * Watchdog di avanzamento della carica nella fascia precedente al
+ * plateau finale.
+ *
+ * BAT_STALL_CHECK_ENABLED:
+ *   0 = protezione disabilitata;
+ *   1 = protezione abilitata. Usare soltanto 0 o 1.
+ *
+ * BAT_STALL_MIN_MV / BAT_STALL_MAX_MV:
+ *   fascia [MIN, MAX) nella quale viene verificato l'aumento di tensione.
+ *   Deve valere MIN < MAX. La configurazione raccomandata collega le
+ *   fasce senza vuoti:
+ *
+ *     STALL_MIN = VBAT_MIN_AUTOMATIC_CHARGE_MV
+ *     STALL_MAX = BAT_PLATEAU_MIN_MV
+ *
+ *   Se STALL_MAX supera PLATEAU_MIN, stallo e plateau possono lavorare
+ *   contemporaneamente. Se e inferiore, resta una fascia non controllata.
+ *
+ * BAT_STALL_CHECK_TIME_S:
+ *   secondi effettivi con PC1 alto disponibili per ottenere l'incremento
+ *   minimo. Deve essere maggiore di zero. E opportuno che sia minore di
+ *   BAT_MAX_TOTAL_ON_TIME_S, altrimenti il timeout totale puo intervenire
+ *   prima che questo watchdog completi la verifica.
+ *
+ * BAT_STALL_MIN_RISE_MV:
+ *   incremento minimo richiesto nel tempo precedente. Aumentarlo rende
+ *   il controllo piu severo; deve restare ben sopra il rumore medio ma
+ *   compatibile con la reale curva di carica.
+ *
+ * BAT_STALL_AVERAGE_SAMPLES:
+ *   numero di campioni delle medie iniziale e finale. Intervallo 1...255
+ *   per i contatori u8. Valori alti filtrano meglio ma ritardano l'avvio
+ *   e aumentano l'uso di RAM.
+ *
+ * Il fault CHARGE_STALLED e latched: non usa il riarmo automatico dei
+ * fault TOTAL_TIMEOUT e TOP_TIMEOUT.
+ */
+#define BAT_STALL_CHECK_ENABLED          1U
+#define BAT_STALL_MIN_MV                 VBAT_MIN_AUTOMATIC_CHARGE_MV
+#define BAT_STALL_MAX_MV                 BAT_PLATEAU_MIN_MV
+#define BAT_STALL_CHECK_TIME_S           (2UL * 60UL * 60UL)
+#define BAT_STALL_MIN_RISE_MV            20U
+#define BAT_STALL_AVERAGE_SAMPLES        8U
+
+/*
+ * Filtro della tensione visualizzata durante il funzionamento a batteria.
+ * Le protezioni continuano a usare la misura grezza.
+ *
+ * BAT_SOC_FILTER_SAMPLES:
+ *   dimensione della finestra della mediana. Deve essere 1...255 per gli
+ *   indici u8 e preferibilmente dispari; con un numero pari viene scelto
+ *   il campione superiore dei due centrali. Aumentarlo rende percentuale
+ *   e log piu stabili ma piu lenti nel seguire variazioni reali.
+ *
+ * BAT_LEVEL_HYSTERESIS_MV:
+ *   isteresi applicata solo quando la percentuale scende. Valore 0
+ *   disabilita di fatto l'isteresi. Con le soglie percentuali attuali e
+ *   raccomandato 0...39 mV: 40 mV e la distanza minima fra due soglie.
+ *   Valori maggiori possono trattenere un livello oltre quello adiacente.
+ *
+ * Questi parametri non ritardano PE15, overvoltage, carica o fault:
+ * modificano soltanto tensione/percentuale mostrate e allarme percentuale.
+ */
+#define BAT_SOC_FILTER_SAMPLES           5U
+#define BAT_LEVEL_HYSTERESIS_MV          25U
+
+/*
+ * Ritardo, in millisecondi, fra la prima misura sotto
+ * VBAT_DISCONNECT_MV e la misura di conferma prima di aprire PE15.
+ *
+ * 0 richiede comunque un secondo passaggio della funzione ma senza attesa
+ * temporale. Un valore troppo breve puo reagire ai picchi LTE; uno troppo
+ * lungo mantiene il carico collegato piu a lungo a una batteria scarica.
+ * Il calcolo usa HAL_GetTick() a 32 bit; restare molto sotto 2^31 ms.
+ */
+#define BAT_UNDERVOLTAGE_CONFIRM_DELAY_MS 2000UL
+
+/*
+ * Soglia, in mV, del fault latched di sovratensione. Il fault spegne PC1
+ * ma non apre PE15. Deve essere maggiore di VBAT_CHARGE_STOP_MV, con un
+ * margine superiore al rumore e all'overshoot della misura; in caso
+ * contrario il fault puo precedere il normale arresto della carica.
  */
 #define VBAT_OVERVOLTAGE_FAULT_MV        8200U
 
 
 /* ================================================================
- * TEMPERATURA INTERNA DEL MICROCONTROLLore
+ * TEMPERATURA INTERNA DEL MICROCONTROLLORE
  * ================================================================
  *
  * acquisizioneTemp() legge ADC_CHANNEL_TEMPSENSOR, quindi misura
  * la temperatura interna dello STM32 e NON quella della batteria.
+ * Tutti i valori sono espressi in gradi Celsius interi signed long.
  */
-#define TEMP_MCU_CHARGE_MAX_C             60L
-#define TEMP_MCU_CHARGE_RESTART_C         50L
-#define TEMP_MCU_EMERGENCY_C             	80L
 
-/* Limiti di plausibilita della misura del sensore interno. */
+/*
+ * A TEMP_MCU_CHARGE_MAX_C o oltre viene sospesa la sola carica.
+ * La carica puo riprendere soltanto a TEMP_MCU_CHARGE_RESTART_C o meno.
+ *
+ * Deve valere RESTART < MAX. La loro differenza e l'isteresi termica;
+ * se sono uguali il comando puo oscillare vicino alla soglia.
+ * Entrambe devono stare dentro i limiti TEMP_SENSOR_MIN/MAX_VALID.
+ */
+#define TEMP_MCU_CHARGE_MAX_C             52L
+#define TEMP_MCU_CHARGE_RESTART_C         50L
+
+/*
+ * Protezione termica estrema con isteresi. A EMERGENCY o oltre PE15
+ * viene aperto; viene richiuso soltanto a EMERGENCY_RESTART o meno.
+ *
+ * Deve valere:
+ *
+ *   TEMP_MCU_CHARGE_RESTART_C < TEMP_MCU_CHARGE_MAX_C
+ *       < TEMP_MCU_EMERGENCY_RESTART_C < TEMP_MCU_EMERGENCY_C
+ *
+ * Cosi la carica e gia ferma prima di scollegare la batteria. Se le fasce
+ * vengono sovrapposte il firmware resta comunque deterministico, ma PE15
+ * potrebbe ricollegarsi mentre la sola carica e ancora bloccata.
+ * Le soglie devono stare dentro TEMP_SENSOR_MIN/MAX_VALID.
+ */
+#define TEMP_MCU_EMERGENCY_C              67L
+#define TEMP_MCU_EMERGENCY_RESTART_C      64L
+
+/*
+ * Limiti inclusivi di plausibilita del sensore interno STM32.
+ * Deve valere MIN_VALID < MAX_VALID e tutte le soglie termiche devono
+ * trovarsi al loro interno. Restringerli aumenta la diagnostica ma puo
+ * produrre fault sensore; allargarli puo accettare letture non realistiche.
+ *
+ * Se la temperatura non e valida, la carica viene fermata. Se PE15 era
+ * gia aperto per sovratemperatura, resta aperto finche una misura valida
+ * non conferma il raffreddamento.
+ */
 #define TEMP_SENSOR_MIN_VALID_C          (-40L)
 #define TEMP_SENSOR_MAX_VALID_C           125L
 
@@ -169,38 +431,88 @@ long temperatura = 0;
 /*
  * La partenza della carica richiede tre misure consecutive
  * sotto la soglia di riavvio.
+ *
+ * Intervallo ammesso: 1...255 (contatore u8). Con controlli ogni 15 s,
+ * 3 significa decisione alla terza misura. 0 causerebbe una conferma
+ * immediata e non deve essere usato.
  */
 #define BAT_START_CONFIRM_COUNT          3U
 
 /*
  * La fine della carica richiede due misure consecutive
  * sopra la soglia di arresto.
+ *
+ * Intervallo ammesso: 1...255 (contatore u8). Aumentarlo rende l'arresto
+ * piu robusto ma prolunga la permanenza vicino alla tensione finale.
+ * 0 non deve essere usato.
  */
 #define BAT_STOP_CONFIRM_COUNT           2U
 
 /*
- * Periodo usato alla prima esecuzione, prima che HAL_GetTick()
- * possa calcolare il periodo reale.
+ * Secondi attribuiti al primo ciclo, quando non esiste ancora un tick
+ * precedente da cui ricavare il tempo trascorso. Deve essere maggiore
+ * di zero e non superiore a BAT_MAX_PERIOD_S. Influenza i timer di
+ * sicurezza solo al primo controllo di una sessione dopo l'avvio.
  */
 #define BAT_DEFAULT_PERIOD_S             30UL
 
 /*
- * Massimo incremento ammesso dei timer in una singola chiamata.
- * Evita che una pausa di debug produca immediatamente un timeout.
+ * Massimo numero di secondi aggiungibile ai timer in un singolo controllo.
+ * Evita che una pausa di debug o un ritardo del main producano un grande
+ * salto. Deve essere > 0 e >= BAT_DEFAULT_PERIOD_S.
+ *
+ * Non e il periodo della misura: il controllo resta schedulato dal main.
+ * Un valore troppo basso sottostima il tempo reale di carica se il main
+ * rimane bloccato piu a lungo.
  */
 #define BAT_MAX_PERIOD_S                 300UL
 
 /*
- * Massimo tempo effettivo con PC1 alto.
+ * Massimo tempo totale, in secondi, con PC1 alto durante una sessione
+ * normale. Il WAKEUP e escluso da questo conteggio. Al raggiungimento
+ * viene latched TOTAL_TIMEOUT e la carica si ferma.
+ *
+ * Valore ammesso dal contatore u32: 1...4294967295 s. Usare il suffisso
+ * UL nelle espressioni. Deve essere maggiore di BAT_STALL_CHECK_TIME_S
+ * se si vuole dare al watchdog di stallo il tempo di intervenire prima.
  */
-#define BAT_MAX_TOTAL_ON_TIME_S          (12UL * 60UL * 60UL)
+#define BAT_MAX_TOTAL_ON_TIME_S          (24UL * 60UL * 60UL)
 
 /*
- * Massimo tempo effettivo con PC1 alto nella parte finale
- * della carica.
+ * Massimo tempo effettivo, in secondi, con PC1 alto negli stati TOP_50
+ * e TOP_25. Al raggiungimento viene latched TOP_TIMEOUT.
+ *
+ * Ha effetto solo con BAT_PULSED_CHARGE_ENABLED == 1. Deve essere > 0
+ * e normalmente <= BAT_MAX_TOTAL_ON_TIME_S; se e maggiore, il timeout
+ * totale interverra sempre prima.
  */
 #define BAT_MAX_TOP_ON_TIME_S            (2UL * 60UL * 60UL)
 
+/*
+ * Riarmo automatico esclusivo dei fault TOTAL_TIMEOUT e TOP_TIMEOUT.
+ *
+ * BAT_TIMEOUT_RESTART_DROP_MV:
+ *   caduta minima, in mV, rispetto alla tensione memorizzata al timeout.
+ *   0 consentirebbe il riarmo senza una vera scarica e non va usato.
+ *   Deve essere maggiore di rumore/errore di misura, ma non cosi grande
+ *   da richiedere una discesa sotto VBAT_DISCONNECT_MV. Se la batteria
+ *   entra in protezione e non viene rilevata, il WAKEUP resta comunque
+ *   autorizzato anche senza una tensione numerica valida.
+ *
+ * BAT_TIMEOUT_RESTART_CONFIRM_COUNT:
+ *   numero di misure consecutive che devono confermare la caduta, con
+ *   rete e temperatura valida. Intervallo 1...255 (contatore u8);
+ *   0 non deve essere usato.
+ */
+#define BAT_TIMEOUT_RESTART_DROP_MV       200U
+#define BAT_TIMEOUT_RESTART_CONFIRM_COUNT 3U
+
+/*
+ * Intervallo minimo, in millisecondi, fra due log riepilogativi [BAT].
+ * Non cambia la frequenza delle misure, dei fault o della macchina a
+ * stati. 0 stampa a ogni misura completata. Valore u32; restare molto
+ * sotto 2^31 ms per un confronto temporale semplice e leggibile.
+ */
 #define BAT_LOG_INTERVAL_MS               15000UL
 
 
@@ -224,9 +536,37 @@ static u8 contatoreWakeup = 0;
 static u32 tempoTotaleCaricaOn_s = 0;
 static u32 tempoTopCaricaOn_s = 0;
 
+static u32 tensioneArrestoTimeout_mV = 0;
+static u8 contatoreRiarmoTimeout = 0;
+
 static u32 ultimoTickBatteria = 0;
 static u32 ultimoTickLogBatteria = 0;
 static u8 logBatteriaInizializzato = 0;
+
+static u16 campioniPlateau[BAT_PLATEAU_SAMPLES];
+static u8 indiceCampionePlateau = 0;
+static u8 numeroCampioniPlateau = 0;
+
+static u32 sommaRiferimentoStallo = 0;
+static u8 campioniRiferimentoStallo = 0;
+static u32 riferimentoStallo_mV = 0;
+static u8 riferimentoStalloValido = 0;
+static u16 campioniRecentiStallo[BAT_STALL_AVERAGE_SAMPLES];
+static u32 sommaCampioniRecentiStallo = 0;
+static u8 indiceCampioneRecenteStallo = 0;
+static u8 numeroCampioniRecentiStallo = 0;
+static u32 tempoCaricaStallo_s = 0;
+
+static u16 campioniTensioneScarica[BAT_SOC_FILTER_SAMPLES];
+static u8 indiceTensioneScarica = 0;
+static u8 filtroTensioneScaricaInizializzato = 0;
+static u8 livelloBatteriaInizializzato = 0;
+
+static u8 confermaSottotensioneAttiva = 0;
+static u32 tickConfermaSottotensione = 0;
+static u32 primaTensioneSottotensione_mV = 0;
+static u8 disconnessioneSottotensioneAttiva = 0;
+static u8 disconnessioneTermicaAttiva = 0;
 
 u8 calibrazioneBatteriaRichiesta = 0;
 u8 calibrazioneBatteriaAttiva = 0;
@@ -306,7 +646,7 @@ static u32 convertiAdcBatteria_mV(u32 adc)
 /*
  * Calcola la percentuale mostrata all'utente.
  *
- * Il 100% corrisponde al livello operativo scelto di 8,07 V,
+ * Il 100% corrisponde al livello operativo scelto di 8,00 V,
  * non alla tensione massima elettrochimica di 8,4 V.
  */
 static u8 calcolaLivelloBatteria(u32 tensione_mV)
@@ -353,6 +693,408 @@ static u8 calcolaLivelloBatteria(u32 tensione_mV)
     }
 
     return 5;
+}
+
+
+/*
+ * Azzera il filtro usato soltanto per la tensione visualizzata durante
+ * il funzionamento senza alimentazione di rete.
+ */
+static void resetFiltroTensioneScarica(void)
+{
+    indiceTensioneScarica = 0U;
+    filtroTensioneScaricaInizializzato = 0U;
+}
+
+
+/*
+ * Restituisce la mediana delle ultime BAT_SOC_FILTER_SAMPLES misure valide.
+ *
+ * Alla prima misura la finestra viene inizializzata con copie dello stesso
+ * valore. Con una finestra di almeno tre elementi, un singolo campione
+ * successivo anomalo non puo spostare immediatamente la mediana.
+ */
+static u32 filtraTensioneScarica_mV(u32 tensione_mV)
+{
+    u16 ordinati[BAT_SOC_FILTER_SAMPLES];
+    u16 temporaneo;
+    u8 i;
+    u8 j;
+
+    if(tensione_mV > 0xFFFFU)
+    {
+        return tensione_mV;
+    }
+
+    if(filtroTensioneScaricaInizializzato == 0U)
+    {
+        for(i = 0U; i < BAT_SOC_FILTER_SAMPLES; i++)
+        {
+            campioniTensioneScarica[i] = (u16)tensione_mV;
+        }
+
+        indiceTensioneScarica = 0U;
+        filtroTensioneScaricaInizializzato = 1U;
+        return tensione_mV;
+    }
+
+    campioniTensioneScarica[indiceTensioneScarica] =
+        (u16)tensione_mV;
+    indiceTensioneScarica++;
+
+    if(indiceTensioneScarica >= BAT_SOC_FILTER_SAMPLES)
+    {
+        indiceTensioneScarica = 0U;
+    }
+
+    for(i = 0U; i < BAT_SOC_FILTER_SAMPLES; i++)
+    {
+        ordinati[i] = campioniTensioneScarica[i];
+    }
+
+    for(i = 1U; i < BAT_SOC_FILTER_SAMPLES; i++)
+    {
+        temporaneo = ordinati[i];
+        j = i;
+
+        while(j > 0U && ordinati[j - 1U] > temporaneo)
+        {
+            ordinati[j] = ordinati[j - 1U];
+            j--;
+        }
+
+        ordinati[j] = temporaneo;
+    }
+
+    return (u32)ordinati[BAT_SOC_FILTER_SAMPLES / 2U];
+}
+
+
+/*
+ * Soglia di ingresso associata a ciascun livello visualizzato.
+ */
+static u32 sogliaLivelloBatteria_mV(u8 livello)
+{
+    switch(livello)
+    {
+        case 100:
+            return VBAT_CHARGE_STOP_MV;
+
+        case 90:
+            return 7950U;
+
+        case 80:
+            return 7780U;
+
+        case 70:
+            return 7650U;
+
+        case 60:
+            return 7570U;
+
+        case 50:
+            return 7500U;
+
+        case 40:
+            return 7450U;
+
+        case 30:
+            return 7410U;
+
+        case 20:
+            return 7300U;
+
+        case 10:
+            return 7050U;
+
+        default:
+            return 0U;
+    }
+}
+
+
+/*
+ * Applica l'isteresi alle sole transizioni verso il basso.
+ *
+ * La mediana elimina i singoli picchi di carico; l'isteresi richiede
+ * inoltre che la tensione scenda realmente sotto la soglia. Le risalite
+ * usano invece le soglie nominali, cosi il livello corretto viene
+ * ripristinato senza richiedere BAT_LEVEL_HYSTERESIS_MV aggiuntivi.
+ */
+static u8 calcolaLivelloBatteriaConIsteresi(u32 tensione_mV)
+{
+    u8 nuovoLivello;
+    u32 soglia;
+
+    nuovoLivello = calcolaLivelloBatteria(tensione_mV);
+
+    if(livelloBatteriaInizializzato == 0U)
+    {
+        livelloBatteriaInizializzato = 1U;
+        return nuovoLivello;
+    }
+
+    if(nuovoLivello < batteryLevel)
+    {
+        soglia = sogliaLivelloBatteria_mV(batteryLevel);
+
+        if(soglia > BAT_LEVEL_HYSTERESIS_MV &&
+           tensione_mV >= (soglia - BAT_LEVEL_HYSTERESIS_MV))
+        {
+            return batteryLevel;
+        }
+    }
+
+    return nuovoLivello;
+}
+
+
+/*
+ * Azzera la finestra usata per riconoscere il plateau di tensione.
+ */
+static void resetControlloPlateau(void)
+{
+    indiceCampionePlateau = 0U;
+    numeroCampioniPlateau = 0U;
+}
+
+
+/*
+ * Inserisce una misura nella finestra mobile e verifica che:
+ * - la media finale non sia salita oltre BAT_PLATEAU_MAX_RISE_MV
+ *   rispetto alla media iniziale;
+ * - l'escursione totale resti entro BAT_PLATEAU_MAX_SPAN_MV.
+ */
+static u8 aggiornaControlloPlateau(
+    u32 tensione_mV,
+    int32_t *incremento_mV,
+    u32 *escursione_mV
+)
+{
+    u32 sommaIniziale = 0U;
+    u32 sommaFinale = 0U;
+    u32 mediaIniziale;
+    u32 mediaFinale;
+    u16 minimo = 0xFFFFU;
+    u16 massimo = 0U;
+    u16 campione;
+    u8 indiceLettura;
+    u8 i;
+
+    *incremento_mV = 0;
+    *escursione_mV = 0U;
+
+    if(tensione_mV > 0xFFFFU)
+    {
+        resetControlloPlateau();
+        return 0U;
+    }
+
+    campioniPlateau[indiceCampionePlateau] = (u16)tensione_mV;
+    indiceCampionePlateau++;
+
+    if(indiceCampionePlateau >= BAT_PLATEAU_SAMPLES)
+    {
+        indiceCampionePlateau = 0U;
+    }
+
+    if(numeroCampioniPlateau < BAT_PLATEAU_SAMPLES)
+    {
+        numeroCampioniPlateau++;
+    }
+
+    if(numeroCampioniPlateau < BAT_PLATEAU_SAMPLES)
+    {
+        return 0U;
+    }
+
+    /*
+     * Quando la finestra e piena, indiceCampionePlateau indica il
+     * campione piu vecchio.
+     */
+    indiceLettura = indiceCampionePlateau;
+
+    for(i = 0U; i < BAT_PLATEAU_SAMPLES; i++)
+    {
+        campione = campioniPlateau[indiceLettura];
+
+        if(campione < minimo)
+        {
+            minimo = campione;
+        }
+
+        if(campione > massimo)
+        {
+            massimo = campione;
+        }
+
+        if(i < BAT_PLATEAU_AVERAGE_SAMPLES)
+        {
+            sommaIniziale += campione;
+        }
+
+        if(i >= (BAT_PLATEAU_SAMPLES - BAT_PLATEAU_AVERAGE_SAMPLES))
+        {
+            sommaFinale += campione;
+        }
+
+        indiceLettura++;
+
+        if(indiceLettura >= BAT_PLATEAU_SAMPLES)
+        {
+            indiceLettura = 0U;
+        }
+    }
+
+    mediaIniziale =
+        sommaIniziale / BAT_PLATEAU_AVERAGE_SAMPLES;
+    mediaFinale =
+        sommaFinale / BAT_PLATEAU_AVERAGE_SAMPLES;
+
+    *incremento_mV =
+        (int32_t)mediaFinale - (int32_t)mediaIniziale;
+    *escursione_mV = (u32)massimo - (u32)minimo;
+
+    if(*incremento_mV <= (int32_t)BAT_PLATEAU_MAX_RISE_MV &&
+       *escursione_mV <= BAT_PLATEAU_MAX_SPAN_MV)
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+
+/*
+ * Azzera il watchdog che verifica l'avanzamento della carica.
+ */
+static void resetControlloStalloCarica(void)
+{
+    sommaRiferimentoStallo = 0U;
+    campioniRiferimentoStallo = 0U;
+    riferimentoStallo_mV = 0U;
+    riferimentoStalloValido = 0U;
+
+    sommaCampioniRecentiStallo = 0U;
+    indiceCampioneRecenteStallo = 0U;
+    numeroCampioniRecentiStallo = 0U;
+    tempoCaricaStallo_s = 0U;
+}
+
+
+/*
+ * Verifica che la tensione aumenti di almeno BAT_STALL_MIN_RISE_MV
+ * durante BAT_STALL_CHECK_TIME_S secondi effettivi di carica.
+ *
+ * Il riferimento iniziale e il valore finale sono medie di piu misure.
+ * Se la carica avanza regolarmente, il valore finale diventa il nuovo
+ * riferimento per la finestra successiva.
+ */
+static u8 aggiornaControlloStalloCarica(
+    u32 tensione_mV,
+    u32 tempoTrascorso_s,
+    u8 comandoCarica,
+    u32 *tensioneIniziale_mV,
+    u32 *tensioneFinale_mV,
+    int32_t *incremento_mV,
+    u32 *tempoCaricaVerificato_s
+)
+{
+    u32 mediaRecente;
+
+    *tensioneIniziale_mV = 0U;
+    *tensioneFinale_mV = 0U;
+    *incremento_mV = 0;
+    *tempoCaricaVerificato_s = 0U;
+
+    if(tensione_mV > 0xFFFFU)
+    {
+        resetControlloStalloCarica();
+        return 0U;
+    }
+
+    if(riferimentoStalloValido == 0U)
+    {
+        sommaRiferimentoStallo += tensione_mV;
+        campioniRiferimentoStallo++;
+
+        if(campioniRiferimentoStallo >=
+           BAT_STALL_AVERAGE_SAMPLES)
+        {
+            riferimentoStallo_mV =
+                sommaRiferimentoStallo /
+                BAT_STALL_AVERAGE_SAMPLES;
+            riferimentoStalloValido = 1U;
+            tempoCaricaStallo_s = 0U;
+        }
+
+        return 0U;
+    }
+
+    if(numeroCampioniRecentiStallo <
+       BAT_STALL_AVERAGE_SAMPLES)
+    {
+        campioniRecentiStallo[indiceCampioneRecenteStallo] =
+            (u16)tensione_mV;
+        sommaCampioniRecentiStallo += tensione_mV;
+        numeroCampioniRecentiStallo++;
+    }
+    else
+    {
+        sommaCampioniRecentiStallo -=
+            campioniRecentiStallo[indiceCampioneRecenteStallo];
+        campioniRecentiStallo[indiceCampioneRecenteStallo] =
+            (u16)tensione_mV;
+        sommaCampioniRecentiStallo += tensione_mV;
+    }
+
+    indiceCampioneRecenteStallo++;
+
+    if(indiceCampioneRecenteStallo >=
+       BAT_STALL_AVERAGE_SAMPLES)
+    {
+        indiceCampioneRecenteStallo = 0U;
+    }
+
+    if(comandoCarica != 0U)
+    {
+        tempoCaricaStallo_s += tempoTrascorso_s;
+
+        if(tempoCaricaStallo_s >
+           BAT_STALL_CHECK_TIME_S)
+        {
+            tempoCaricaStallo_s =
+                BAT_STALL_CHECK_TIME_S;
+        }
+    }
+
+    if(tempoCaricaStallo_s < BAT_STALL_CHECK_TIME_S ||
+       numeroCampioniRecentiStallo <
+       BAT_STALL_AVERAGE_SAMPLES)
+    {
+        return 0U;
+    }
+
+    mediaRecente =
+        sommaCampioniRecentiStallo /
+        BAT_STALL_AVERAGE_SAMPLES;
+
+    *tensioneIniziale_mV = riferimentoStallo_mV;
+    *tensioneFinale_mV = mediaRecente;
+    *incremento_mV =
+        (int32_t)mediaRecente -
+        (int32_t)riferimentoStallo_mV;
+    *tempoCaricaVerificato_s = tempoCaricaStallo_s;
+
+    if(*incremento_mV < (int32_t)BAT_STALL_MIN_RISE_MV)
+    {
+        return 1U;
+    }
+
+    riferimentoStallo_mV = mediaRecente;
+    tempoCaricaStallo_s = 0U;
+
+    return 0U;
 }
 
 
@@ -424,6 +1166,9 @@ static const char *nomeFaultBatteria(BatteryFault_t fault)
         case BAT_FAULT_TOP_TIMEOUT:
             return "TOP_TIMEOUT";
 
+        case BAT_FAULT_CHARGE_STALLED:
+            return "CHARGE_STALLED";
+
         default:
             return "UNKNOWN";
     }
@@ -458,6 +1203,18 @@ void resetFaultCaricaBatteria(void)
 
     tempoTotaleCaricaOn_s = 0;
     tempoTopCaricaOn_s = 0;
+    tensioneArrestoTimeout_mV = 0;
+    contatoreRiarmoTimeout = 0;
+
+    resetControlloPlateau();
+    resetControlloStalloCarica();
+    resetFiltroTensioneScarica();
+    livelloBatteriaInizializzato = 0U;
+
+    confermaSottotensioneAttiva = 0U;
+    tickConfermaSottotensione = 0U;
+    primaTensioneSottotensione_mV = 0U;
+    disconnessioneSottotensioneAttiva = 0U;
 
     batteriaInCarica = 0;
 }
@@ -1067,7 +1824,8 @@ static BatteryAdcMeasurement_t misuraAdcBatteria(void)
          * L'intera stabilizzazione di PE15 e PC0 avviene nella finestra
          * non bloccante BAT_MEASURE_DELAY.
          */
-        if(alimentatore != 0)
+        if(alimentatore != 0 &&
+           disconnessioneTermicaAttiva == 0U)
         {
             HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
         }
@@ -1217,8 +1975,15 @@ u8 controllaBatteria(void)
     BatteryAdcMeasurement_t misuraADC;
     u32 acquisizione;
     u32 tensioneMisurata_mV = 0;
+    u32 tensioneVisualizzata_mV = 0;
     u32 tickAttuale;
     u32 tempoTrascorso_s;
+    u32 escursionePlateau_mV = 0;
+    u32 tensioneInizialeStallo_mV = 0;
+    u32 tensioneFinaleStallo_mV = 0;
+    u32 tempoCaricaVerificatoStallo_s = 0;
+    int32_t incrementoPlateau_mV = 0;
+    int32_t incrementoStallo_mV = 0;
     long temperaturaMCU;
     long temperaturaRapida;
 
@@ -1229,6 +1994,8 @@ u8 controllaBatteria(void)
     u8 comandoCarica = 0;
     u8 collegaBatteria = 1;
     u8 dutyPercentuale = 0;
+    u8 misuraConfermaSottotensione = 0;
+    u8 riarmoTimeoutRichiesto = 0;
 
     BatteryState_t statoPrecedente;
     BatteryFault_t faultAttuale;
@@ -1241,6 +2008,39 @@ u8 controllaBatteria(void)
      * 1. TEMPO TRASCORSO FRA DUE ESECUZIONI
      * ============================================================= */
     tickAttuale = HAL_GetTick();
+
+    /*
+     * Il ritorno dell'alimentatore rende nuovamente possibile la carica
+     * e quindi rimuove il latch usato per mantenere aperto PE15 dopo una
+     * sottotensione durante il funzionamento a batteria.
+     */
+    if(alimentatore != 0)
+    {
+        disconnessioneSottotensioneAttiva = 0U;
+    }
+
+    /*
+     * La conferma di una sottotensione e non bloccante. Durante
+     * l'attesa il flag periodico resta attivo e il main continua a
+     * richiamare questa funzione.
+     */
+    if(confermaSottotensioneAttiva != 0U)
+    {
+        if(alimentatore != 0)
+        {
+            confermaSottotensioneAttiva = 0U;
+            primaTensioneSottotensione_mV = 0U;
+        }
+        else if((tickAttuale - tickConfermaSottotensione) <
+                BAT_UNDERVOLTAGE_CONFIRM_DELAY_MS)
+        {
+            return 0U;
+        }
+        else
+        {
+            misuraConfermaSottotensione = 1U;
+        }
+    }
 
     if(ultimoTickBatteria == 0U)
     {
@@ -1316,6 +2116,13 @@ u8 controllaBatteria(void)
     acquisizione = misuraADC.media;
     adcValido = misuraADC.valida;
 
+    if(misuraConfermaSottotensione != 0U &&
+       adcValido == 0U)
+    {
+        confermaSottotensioneAttiva = 0U;
+        primaTensioneSottotensione_mV = 0U;
+    }
+
     /*
      * La conversione viene eseguita soltanto quando l'ADC e valido.
      * Con ADC=0 non viene quindi mostrata la falsa tensione di 48 mV
@@ -1348,16 +2155,93 @@ u8 controllaBatteria(void)
             tensioneMisurata_mV = 20000U;
         }
 
-        tensioneB = ((double)tensioneMisurata_mV) / 1000.0;
-        tensioneBint = (int)((tensioneMisurata_mV + 50U) / 100U);
-        batteryLevel = calcolaLivelloBatteria(tensioneMisurata_mV);
+        /*
+         * Prima di scollegare la batteria per una singola misura sotto
+         * soglia, viene richiesta una seconda misura dopo 2 secondi.
+         * Durante l'attesa restano spenti carica e circuito di misura,
+         * mentre PE15 mantiene collegata la batteria.
+         */
+        if(alimentatore == 0 &&
+           tensioneMisurata_mV < VBAT_DISCONNECT_MV &&
+           misuraConfermaSottotensione == 0U)
+        {
+            confermaSottotensioneAttiva = 1U;
+            tickConfermaSottotensione = HAL_GetTick();
+            primaTensioneSottotensione_mV = tensioneMisurata_mV;
+
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+            batteriaInCarica = 0U;
+            return 0U;
+        }
+
+        if(misuraConfermaSottotensione != 0U)
+        {
+            confermaSottotensioneAttiva = 0U;
+
+            if(tensioneMisurata_mV >= VBAT_DISCONNECT_MV)
+            {
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Load transient ignored: First=%lu.%03luV "
+                    "Confirm=%lu.%03luV\r\n",
+                    (unsigned long)
+                        (primaTensioneSottotensione_mV / 1000U),
+                    (unsigned long)
+                        (primaTensioneSottotensione_mV % 1000U),
+                    (unsigned long)(tensioneMisurata_mV / 1000U),
+                    (unsigned long)(tensioneMisurata_mV % 1000U)
+                );
+
+                HAL_UART_Transmit(
+                    &huart1,
+                    (u8 *)uart,
+                    strlen(uart),
+                    300
+                );
+            }
+
+            primaTensioneSottotensione_mV = 0U;
+        }
+
+        /*
+         * Durante il funzionamento a batteria soltanto la tensione
+         * visualizzata e la percentuale vengono filtrate. La misura
+         * grezza resta disponibile per protezioni e macchina di carica.
+         */
+        if(alimentatore == 0)
+        {
+            tensioneVisualizzata_mV =
+                filtraTensioneScarica_mV(tensioneMisurata_mV);
+            batteryLevel =
+                calcolaLivelloBatteriaConIsteresi(
+                    tensioneVisualizzata_mV
+                );
+        }
+        else
+        {
+            resetFiltroTensioneScarica();
+            tensioneVisualizzata_mV = tensioneMisurata_mV;
+            batteryLevel =
+                calcolaLivelloBatteria(tensioneVisualizzata_mV);
+            livelloBatteriaInizializzato = 1U;
+        }
+
+        tensioneB =
+            ((double)tensioneVisualizzata_mV) / 1000.0;
+        tensioneBint =
+            (int)((tensioneVisualizzata_mV + 50U) / 100U);
     }
     else
     {
         tensioneMisurata_mV = 0;
+        tensioneVisualizzata_mV = 0;
         tensioneB = 0.0;
         tensioneBint = 0;
         batteryLevel = 5;
+        resetFiltroTensioneScarica();
+        livelloBatteriaInizializzato = 0U;
     }
 
     /* =============================================================
@@ -1405,6 +2289,30 @@ u8 controllaBatteria(void)
         bloccoTemperatura = 1;
     }
 
+    /*
+     * La protezione termica estrema e indipendente dal blocco della
+     * sola carica. Una volta aperto PE15, viene richiesta una discesa
+     * sotto 75 C prima di ricollegare la batteria.
+     *
+     * Con misura di temperatura non valida il latch conserva il proprio
+     * stato: una batteria gia scollegata non viene ricollegata senza una
+     * conferma valida del raffreddamento.
+     */
+    if(temperaturaValida != 0)
+    {
+        if(disconnessioneTermicaAttiva != 0U)
+        {
+            if(temperaturaMCU <= TEMP_MCU_EMERGENCY_RESTART_C)
+            {
+                disconnessioneTermicaAttiva = 0U;
+            }
+        }
+        else if(temperaturaMCU >= TEMP_MCU_EMERGENCY_C)
+        {
+            disconnessioneTermicaAttiva = 1U;
+        }
+    }
+
     if(alimentatore != 0 &&
        temperaturaValida != 0 &&
        bloccoTemperatura == 0 &&
@@ -1428,6 +2336,106 @@ u8 controllaBatteria(void)
         faultAttuale = BAT_FAULT_OVERVOLTAGE;
         sessioneCaricaAttiva = 0;
         caricaCompleta = 0;
+        tensioneArrestoTimeout_mV = 0U;
+        contatoreRiarmoTimeout = 0U;
+    }
+
+    /*
+     * I fault di timeout si riarmano automaticamente soltanto dopo una
+     * perdita di tensione significativa rispetto al valore registrato
+     * all'arresto. La verifica viene fatta con alimentatore presente:
+     * in questo modo la nuova sessione puo iniziare immediatamente e la
+     * misura non e influenzata dai picchi di carico del funzionamento
+     * a batteria.
+     */
+    if((faultCaricaLatched == BAT_FAULT_TOTAL_TIMEOUT ||
+        faultCaricaLatched == BAT_FAULT_TOP_TIMEOUT) &&
+       alimentatore != 0 &&
+       temperaturaValida != 0)
+    {
+        if(batteriaNonRilevata != 0)
+        {
+            /*
+             * Una batteria in protezione per sovrascarica puo fornire
+             * ADC prossimo a zero: e comunque una condizione valida per
+             * rimuovere il timeout e consentire il WAKEUP.
+             */
+            riarmoTimeoutRichiesto = 1U;
+        }
+        else if(adcValido != 0 &&
+                tensioneArrestoTimeout_mV >=
+                    BAT_TIMEOUT_RESTART_DROP_MV &&
+                tensioneMisurata_mV <=
+                    (tensioneArrestoTimeout_mV -
+                     BAT_TIMEOUT_RESTART_DROP_MV))
+        {
+            riarmoTimeoutRichiesto = 1U;
+        }
+    }
+
+    if(riarmoTimeoutRichiesto != 0U)
+    {
+        if(contatoreRiarmoTimeout < BAT_TIMEOUT_RESTART_CONFIRM_COUNT)
+        {
+            contatoreRiarmoTimeout++;
+        }
+
+        if(contatoreRiarmoTimeout >= BAT_TIMEOUT_RESTART_CONFIRM_COUNT)
+        {
+            if(adcValido != 0)
+            {
+                u32 cadutaTimeout_mV =
+                    tensioneArrestoTimeout_mV - tensioneMisurata_mV;
+
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Timeout cleared: Ref=%lu.%03luV "
+                    "Now=%lu.%03luV Drop=%lumV\r\n",
+                    (unsigned long)(tensioneArrestoTimeout_mV / 1000U),
+                    (unsigned long)(tensioneArrestoTimeout_mV % 1000U),
+                    (unsigned long)(tensioneMisurata_mV / 1000U),
+                    (unsigned long)(tensioneMisurata_mV % 1000U),
+                    (unsigned long)cadutaTimeout_mV
+                );
+            }
+            else
+            {
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Timeout cleared: Ref=%lu.%03luV "
+                    "Now=NOT_DETECTED\r\n",
+                    (unsigned long)(tensioneArrestoTimeout_mV / 1000U),
+                    (unsigned long)(tensioneArrestoTimeout_mV % 1000U)
+                );
+            }
+
+            HAL_UART_Transmit(
+                &huart1,
+                (u8 *)uart,
+                strlen(uart),
+                300
+            );
+
+            faultCaricaLatched = BAT_FAULT_NONE;
+            faultAttuale = BAT_FAULT_NONE;
+            sessioneCaricaAttiva = 1U;
+            caricaCompleta = 0U;
+            contatoreAvvio = 0U;
+            contatoreArresto = 0U;
+            contatoreDutyCycle = 0U;
+            tempoTotaleCaricaOn_s = 0U;
+            tempoTopCaricaOn_s = 0U;
+            tensioneArrestoTimeout_mV = 0U;
+            contatoreRiarmoTimeout = 0U;
+            resetControlloPlateau();
+            resetControlloStalloCarica();
+        }
+    }
+    else
+    {
+        contatoreRiarmoTimeout = 0U;
     }
 
     /* =============================================================
@@ -1445,7 +2453,7 @@ u8 controllaBatteria(void)
          * Recupero senza limite complessivo:
          * due intervalli da 15 s con carica attiva, seguiti da un
          * intervallo da 15 s senza carica. La misura mantiene PC0
-         * collegato soltanto per BAT_MEASURE_DELAY (400 ms).
+         * collegato soltanto per BAT_MEASURE_DELAY.
          */
         statoCaricaBatteria = BAT_STATE_WAKEUP;
         faultAttuale = BAT_FAULT_NONE;
@@ -1508,14 +2516,17 @@ u8 controllaBatteria(void)
     {
         contatoreWakeup = 0;
 
-        /* Dopo FULL si riparte solo sotto 7,75 V per tre misure. */
+        /*
+         * Dopo FULL si riparte sotto VBAT_RECHARGE_MV per
+         * BAT_START_CONFIRM_COUNT misure consecutive.
+         */
         if(caricaCompleta != 0)
         {
             statoCaricaBatteria = BAT_STATE_FULL;
             comandoCarica = 0;
             dutyPercentuale = 0;
 
-            if(tensioneMisurata_mV <= VBAT_RECHARGE_MV)
+            if(tensioneMisurata_mV < VBAT_RECHARGE_MV)
             {
                 if(contatoreAvvio < BAT_START_CONFIRM_COUNT)
                 {
@@ -1542,7 +2553,7 @@ u8 controllaBatteria(void)
         /* Avvio di una nuova sessione. */
         if(caricaCompleta == 0 && sessioneCaricaAttiva == 0)
         {
-            if(tensioneMisurata_mV <= VBAT_RECHARGE_MV)
+            if(tensioneMisurata_mV < VBAT_RECHARGE_MV)
             {
                 if(contatoreAvvio < BAT_START_CONFIRM_COUNT)
                 {
@@ -1602,7 +2613,14 @@ u8 controllaBatteria(void)
             {
                 contatoreArresto = 0;
 
-                if(tensioneMisurata_mV < VBAT_TOP_50_MV)
+                if(BAT_PULSED_CHARGE_ENABLED == 0U)
+                {
+                    statoCaricaBatteria = BAT_STATE_BULK;
+                    comandoCarica = 1;
+                    dutyPercentuale = 100;
+                    contatoreDutyCycle = 0;
+                }
+                else if(tensioneMisurata_mV < VBAT_TOP_50_MV)
                 {
                     statoCaricaBatteria = BAT_STATE_BULK;
                     comandoCarica = 1;
@@ -1648,7 +2666,149 @@ u8 controllaBatteria(void)
     }
 
     /* =============================================================
-     * 6. TIMER DI SICUREZZA
+     * 6. WATCHDOG DI AVANZAMENTO DELLA CARICA
+     * =============================================================
+     * Nella fascia precedente al plateau finale la tensione deve
+     * aumentare di almeno BAT_STALL_MIN_RISE_MV durante il tempo
+     * effettivo di carica configurato. In caso contrario il fault viene
+     * latched e PC1 resta spento fino al reset esplicito del fault o al
+     * riavvio del microcontrollore.
+     */
+    if(BAT_STALL_CHECK_ENABLED != 0U &&
+       alimentatore != 0 &&
+       adcValido != 0 &&
+       temperaturaValida != 0 &&
+       faultCaricaLatched == BAT_FAULT_NONE &&
+       sessioneCaricaAttiva != 0 &&
+       statoCaricaBatteria != BAT_STATE_WAKEUP)
+    {
+        if(tensioneMisurata_mV >= BAT_STALL_MIN_MV &&
+           tensioneMisurata_mV < BAT_STALL_MAX_MV)
+        {
+            if(aggiornaControlloStalloCarica(
+                   tensioneMisurata_mV,
+                   tempoTrascorso_s,
+                   comandoCarica,
+                   &tensioneInizialeStallo_mV,
+                   &tensioneFinaleStallo_mV,
+                   &incrementoStallo_mV,
+                   &tempoCaricaVerificatoStallo_s
+               ) != 0U)
+            {
+                faultCaricaLatched = BAT_FAULT_CHARGE_STALLED;
+                faultAttuale = BAT_FAULT_CHARGE_STALLED;
+                statoCaricaBatteria = BAT_STATE_FAULT;
+                sessioneCaricaAttiva = 0;
+                caricaCompleta = 0;
+                comandoCarica = 0;
+                dutyPercentuale = 0;
+                contatoreAvvio = 0;
+                contatoreArresto = 0;
+                contatoreDutyCycle = 0;
+
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Charge stopped: STALLED Start=%lu.%03luV "
+                    "End=%lu.%03luV Rise=%ldmV OnTime=%lus\r\n",
+                    (unsigned long)
+                        (tensioneInizialeStallo_mV / 1000U),
+                    (unsigned long)
+                        (tensioneInizialeStallo_mV % 1000U),
+                    (unsigned long)
+                        (tensioneFinaleStallo_mV / 1000U),
+                    (unsigned long)
+                        (tensioneFinaleStallo_mV % 1000U),
+                    (long)incrementoStallo_mV,
+                    (unsigned long)tempoCaricaVerificatoStallo_s
+                );
+
+                HAL_UART_Transmit(
+                    &huart1,
+                    (u8 *)uart,
+                    strlen(uart),
+                    300
+                );
+
+                resetControlloStalloCarica();
+            }
+        }
+        else if(tensioneMisurata_mV < BAT_STALL_MIN_MV)
+        {
+            resetControlloStalloCarica();
+        }
+    }
+    else
+    {
+        resetControlloStalloCarica();
+    }
+
+    /* =============================================================
+     * 7. ARRESTO PER PLATEAU DELLA TENSIONE
+     * =============================================================
+     * Questa verifica usa ogni misura valida della batteria ed e
+     * completamente indipendente dalla frequenza del log seriale.
+     *
+     * Con la carica pulsata disabilitata, una tensione stabile nella
+     * fascia finale indica che la batteria non sta piu assorbendo carica
+     * in modo apprezzabile. La sessione viene quindi conclusa senza
+     * attendere il timeout totale.
+     */
+    if(BAT_PLATEAU_TERMINATION_ENABLED != 0U &&
+       BAT_PULSED_CHARGE_ENABLED == 0U &&
+       alimentatore != 0 &&
+       adcValido != 0 &&
+       temperaturaValida != 0 &&
+       faultCaricaLatched == BAT_FAULT_NONE &&
+       sessioneCaricaAttiva != 0 &&
+       comandoCarica != 0 &&
+       tensioneMisurata_mV >= BAT_PLATEAU_MIN_MV &&
+       tensioneMisurata_mV < VBAT_CHARGE_STOP_MV)
+    {
+        if(aggiornaControlloPlateau(
+               tensioneMisurata_mV,
+               &incrementoPlateau_mV,
+               &escursionePlateau_mV
+           ) != 0U)
+        {
+            caricaCompleta = 1;
+            sessioneCaricaAttiva = 0;
+            comandoCarica = 0;
+            dutyPercentuale = 0;
+            contatoreAvvio = 0;
+            contatoreArresto = 0;
+            contatoreDutyCycle = 0;
+            statoCaricaBatteria = BAT_STATE_FULL;
+
+            snprintf(
+                uart,
+                sizeof(uart),
+                "[BAT] Charge complete: PLATEAU V=%lu.%03luV "
+                "Rise=%ldmV Span=%lumV Samples=%u\r\n",
+                (unsigned long)(tensioneMisurata_mV / 1000U),
+                (unsigned long)(tensioneMisurata_mV % 1000U),
+                (long)incrementoPlateau_mV,
+                (unsigned long)escursionePlateau_mV,
+                (unsigned int)BAT_PLATEAU_SAMPLES
+            );
+
+            HAL_UART_Transmit(
+                &huart1,
+                (u8 *)uart,
+                strlen(uart),
+                300
+            );
+
+            resetControlloPlateau();
+        }
+    }
+    else
+    {
+        resetControlloPlateau();
+    }
+
+    /* =============================================================
+     * 8. TIMER DI SICUREZZA
      * ============================================================= */
     if(comandoCarica != 0 &&
        statoCaricaBatteria != BAT_STATE_WAKEUP)
@@ -1662,7 +2822,8 @@ u8 controllaBatteria(void)
         }
     }
 
-    if(tempoTotaleCaricaOn_s >= BAT_MAX_TOTAL_ON_TIME_S)
+    if(faultCaricaLatched == BAT_FAULT_NONE &&
+       tempoTotaleCaricaOn_s >= BAT_MAX_TOTAL_ON_TIME_S)
     {
         faultCaricaLatched = BAT_FAULT_TOTAL_TIMEOUT;
         faultAttuale = BAT_FAULT_TOTAL_TIMEOUT;
@@ -1670,9 +2831,12 @@ u8 controllaBatteria(void)
         sessioneCaricaAttiva = 0;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        tensioneArrestoTimeout_mV = tensioneMisurata_mV;
+        contatoreRiarmoTimeout = 0U;
     }
 
-    if(tempoTopCaricaOn_s >= BAT_MAX_TOP_ON_TIME_S)
+    if(faultCaricaLatched == BAT_FAULT_NONE &&
+       tempoTopCaricaOn_s >= BAT_MAX_TOP_ON_TIME_S)
     {
         faultCaricaLatched = BAT_FAULT_TOP_TIMEOUT;
         faultAttuale = BAT_FAULT_TOP_TIMEOUT;
@@ -1680,13 +2844,20 @@ u8 controllaBatteria(void)
         sessioneCaricaAttiva = 0;
         comandoCarica = 0;
         dutyPercentuale = 0;
+        tensioneArrestoTimeout_mV = tensioneMisurata_mV;
+        contatoreRiarmoTimeout = 0U;
     }
 
     /* =============================================================
-     * 7. DECISIONE UNICA SU PE15
+     * 9. DECISIONE UNICA SU PE15
      * =============================================================
-     * Con alimentatore presente e ADC non valido PE15 resta collegato,
-     * cosi la misura puo recuperare al ciclo successivo.
+     * PE15 viene aperto dopo una sottotensione confermata sotto 6,0 V
+     * durante il funzionamento senza alimentatore oppure per una
+     * sovratemperatura estrema del microcontrollore.
+     *
+     * Il latch mantiene la batteria isolata anche quando, dopo l'apertura,
+     * l'ADC non puo piu leggerla. Al ritorno dell'alimentatore il latch
+     * viene cancellato e PE15 viene richiuso per consentire il WAKEUP.
      */
     collegaBatteria = 1;
 
@@ -1694,33 +2865,22 @@ u8 controllaBatteria(void)
        alimentatore == 0 &&
        tensioneMisurata_mV < VBAT_DISCONNECT_MV)
     {
-        collegaBatteria = 0;
+        disconnessioneSottotensioneAttiva = 1U;
     }
 
-    if(adcValido == 0 && alimentatore == 0)
+    if(alimentatore == 0 &&
+       disconnessioneSottotensioneAttiva != 0U)
     {
         collegaBatteria = 0;
     }
 
-    if(temperaturaValida == 0)
-    {
-        if(alimentatore == 0)
-        {
-            collegaBatteria = 0;
-        }
-    }
-    else if(temperaturaMCU >= TEMP_MCU_EMERGENCY_C)
-    {
-        collegaBatteria = 0;
-    }
-
-    if(faultCaricaLatched == BAT_FAULT_OVERVOLTAGE)
+    if(disconnessioneTermicaAttiva != 0U)
     {
         collegaBatteria = 0;
     }
 
     /* =============================================================
-     * 8. COMANDO FINALE DEI GPIO
+     * 10. COMANDO FINALE DEI GPIO
      * ============================================================= */
     HAL_GPIO_WritePin(
         GPIOC,
@@ -1737,7 +2897,7 @@ u8 controllaBatteria(void)
     batteriaInCarica = comandoCarica;
 
     /* =============================================================
-     * 9. DIAGNOSTICA SERIALE
+     * 11. DIAGNOSTICA SERIALE
      * ============================================================= */
     if(logBatteriaInizializzato == 0U ||
        (tickAttuale - ultimoTickLogBatteria) >= BAT_LOG_INTERVAL_MS)
@@ -1752,8 +2912,8 @@ u8 controllaBatteria(void)
                 sizeof(uart),
                 "[BAT] V=%lu.%03luV Level=%u%% AC=%u T=%ldC "
                 "State=%s Fault=%s Charge=%u Connected=%u\r\n",
-                (unsigned long)(tensioneMisurata_mV / 1000U),
-                (unsigned long)(tensioneMisurata_mV % 1000U),
+                (unsigned long)(tensioneVisualizzata_mV / 1000U),
+                (unsigned long)(tensioneVisualizzata_mV % 1000U),
                 (unsigned int)batteryLevel,
                 (unsigned int)alimentatore,
                 temperaturaMCU,
@@ -1783,7 +2943,7 @@ u8 controllaBatteria(void)
     }
 
     /* =============================================================
-     * 10. GESTIONE DEGLI ALLARMI BATTERIA
+     * 12. GESTIONE DEGLI ALLARMI BATTERIA
      * ============================================================= */
     if(batteryLevel >= 40 && messaggioBatteria != 0)
     {

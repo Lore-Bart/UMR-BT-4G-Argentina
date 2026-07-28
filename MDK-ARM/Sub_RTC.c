@@ -155,12 +155,13 @@ extern u32 correnteGuasto[6];
 //soglie
 extern u16 sogliaCorrenteA;
 extern u16 sogliaCorrenteB;
+extern u8 adeguamentoSoglieAttivo;
 
 extern u8 simulaGuasto;
 extern u8 simulaNeutro;
 
 //inibizione guasto
-extern u8 inibitGuasto;
+extern u32 inibitGuasto;
 
 extern u8 riavvio;
 extern u32 correnteGuasto[6];
@@ -628,9 +629,17 @@ void RTCpolling(void){
 		}
 		
 			//gestione guasti
-	if(inibitGuasto != 0 && inibitGuasto != 255){ //inibizione controllo guasti dopo invio allarme
+	if(inibitGuasto != 0 &&
+	   inibitGuasto != GUASTO_INIBIZIONE_FORMAT){
 		inibitGuasto--;
-		if(inibitGuasto == 2){
+
+		/*
+		 * Con autolevel attivo il controllo avviene due secondi prima
+		 * della scadenza. Senza autolevel, lo zero genera un nuovo
+		 * evento completo esattamente alla scadenza configurata.
+		 */
+		if((adeguamentoSoglieAttivo != 0 && inibitGuasto == 2UL) ||
+		   (adeguamentoSoglieAttivo == 0 && inibitGuasto == 0UL)){
 			ricalcolaSoglie();			
 		}
 	}
@@ -762,7 +771,7 @@ void RTCpolling(void){
 				}
 			}
 			if(formatGuasti == 0){
-				if(inibitGuasto == 255){ inibitGuasto = 0; }
+				if(inibitGuasto == GUASTO_INIBIZIONE_FORMAT){ inibitGuasto = 0; }
 				inibitGuastoSMS = 0;
 				nfcGuastiEraseRetry = 0;
 				if(nfcGuastiEraseSkipped == 0){

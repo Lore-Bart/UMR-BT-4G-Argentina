@@ -66,6 +66,9 @@ extern u8 autoSyncActive;
 extern u8 numeroAllarmi[20];
 extern u8 numeroDevice[20];
 extern u8 allarmiSMSattivi;
+extern u8 adeguamentoSoglieAttivo;
+extern u8 intervalloAllarmeSovracorrenteMinuti;
+extern u32 inibitGuasto;
 
 
 //variabili temporali
@@ -679,6 +682,14 @@ void eseguiComandoBT(uint8_t *messaggio){
 				HAL_UART_Transmit(&huart2,uart,1,100);
 				uart[0] = allarmiSMSattivi ? '1' : '0';
 				HAL_UART_Transmit(&huart2,uart,1,100);
+				uart[0] = adeguamentoSoglieAttivo ? '1' : '0';
+				HAL_UART_Transmit(&huart2,uart,1,100);
+				HAL_UART_Transmit(
+					&huart2,
+					&intervalloAllarmeSovracorrenteMinuti,
+					1,
+					100
+				);
 						
 				sprintf(uart,"\0");
 				HAL_UART_Transmit(&huart2,numeroAllarmi,20,100);
@@ -738,6 +749,52 @@ void eseguiComandoBT(uint8_t *messaggio){
 					addressFram[0] = SMS_ALARM_FRAM_PAGE;
 					addressFram[1] = SMS_ALARM_FRAM_OFFSET;
 					saveArrayFram(&data[0],&addressFram[0],2);
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				}
+				else{
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+				}
+				break;
+
+			case 0x61: //abilita/disabilita adeguamento automatico soglie
+				if(messaggio[pwOff+2] == '0' || messaggio[pwOff+2] == '1'){
+					data[0] = AUTO_THRESHOLD_FRAM_MARKER;
+					adeguamentoSoglieAttivo = messaggio[pwOff+2] - '0';
+					data[1] = adeguamentoSoglieAttivo;
+					addressFram[0] = AUTO_THRESHOLD_FRAM_PAGE;
+					addressFram[1] = AUTO_THRESHOLD_FRAM_OFFSET;
+					saveArrayFram(&data[0],&addressFram[0],2);
+
+					if(inibitGuasto != 0UL &&
+					   inibitGuasto != GUASTO_INIBIZIONE_FORMAT){
+						inibitGuasto =
+							(u32)intervalloAllarmeSovracorrenteMinuti * 60UL;
+					}
+
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				}
+				else{
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+				}
+				break;
+
+			case 0x62: //imposta intervallo eventi sovracorrente [minuti]
+				if(messaggio[pwOff+2] >= 1U &&
+				   messaggio[pwOff+2] <= 60U){
+					intervalloAllarmeSovracorrenteMinuti =
+						messaggio[pwOff+2];
+					data[0] = OVERCURRENT_INTERVAL_FRAM_MARKER;
+					data[1] = intervalloAllarmeSovracorrenteMinuti;
+					addressFram[0] = OVERCURRENT_INTERVAL_FRAM_PAGE;
+					addressFram[1] = OVERCURRENT_INTERVAL_FRAM_OFFSET;
+					saveArrayFram(&data[0],&addressFram[0],2);
+
+					if(inibitGuasto != 0UL &&
+					   inibitGuasto != GUASTO_INIBIZIONE_FORMAT){
+						inibitGuasto =
+							(u32)intervalloAllarmeSovracorrenteMinuti * 60UL;
+					}
+
 					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				}
 				else{
@@ -1118,8 +1175,6 @@ void bluetoothID(u8* ID){
 	
 	
 }
-
-
 
 
 

@@ -24,6 +24,8 @@ extern ADC_HandleTypeDef hadc1;
 extern u8 lastNumber[10];
 extern u8 numeroAllarmi[20];
 extern u8 allarmiSMSattivi;
+extern u8 adeguamentoSoglieAttivo;
+extern u8 intervalloAllarmeSovracorrenteMinuti;
 
 //sovracorrenti
 u32 calibrazioneI[6];
@@ -63,7 +65,7 @@ u32 acq[6];
 u32 correnteGuasto[6];
 
 //inibizione guasto
-u8 inibitGuasto = 0;
+u32 inibitGuasto = 0;
 
 //simulatore
 u8 simulaGuasto = 0;
@@ -259,7 +261,8 @@ void exTimerGuasti(void){
 		aggiungiGuastoDB(1,&correnteGuasto[0]);
 			
 		//disattivo il Timer e attivo inibizione
-		inibitGuasto = 60;
+		inibitGuasto =
+			(u32)intervalloAllarmeSovracorrenteMinuti * 60UL;
 		//eventoAvvenuto = 1;			
 		}
 		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_8);
@@ -285,6 +288,7 @@ void ricalcolaSoglie(void){
 	u8 addressFram[2] = {1,43};
 	u8 offset[2] = {0,34};
 	u8 modif = 0;
+	u8 correntePersistente = 0;
 	u8 sms[100];
 	
 	if(alimentatore == 0){
@@ -313,25 +317,53 @@ void ricalcolaSoglie(void){
 			correnteGuasto[0] = 700;
 		}
 		
-		if(sogliaCorrenteA != 0){
-			if(correnteGuasto[0] >= sogliaCorrenteA || correnteGuasto[1] >= sogliaCorrenteA || correnteGuasto[2] >= sogliaCorrenteA){
-				sogliaMax = correnteGuasto[0];
-				if(sogliaMax < correnteGuasto[1]){sogliaMax = correnteGuasto[1];}
-				if(sogliaMax < correnteGuasto[2]){sogliaMax = correnteGuasto[2];}
-				
-				sogliaCorrenteA = sogliaMax + 15;
-				modif = 1;
+		if(adeguamentoSoglieAttivo != 0){
+			if(sogliaCorrenteA != 0){
+				if(correnteGuasto[0] >= sogliaCorrenteA || correnteGuasto[1] >= sogliaCorrenteA || correnteGuasto[2] >= sogliaCorrenteA){
+					sogliaMax = correnteGuasto[0];
+					if(sogliaMax < correnteGuasto[1]){sogliaMax = correnteGuasto[1];}
+					if(sogliaMax < correnteGuasto[2]){sogliaMax = correnteGuasto[2];}
+
+					sogliaCorrenteA = sogliaMax + 15;
+					modif = 1;
+				}
+			}
+
+			if(sogliaCorrenteB != 0){
+				if(correnteGuasto[3] >= sogliaCorrenteB || correnteGuasto[4] >= sogliaCorrenteB || correnteGuasto[5] >= sogliaCorrenteB){
+					sogliaMax = correnteGuasto[3];
+					if(sogliaMax < correnteGuasto[4]){sogliaMax = correnteGuasto[4];}
+					if(sogliaMax < correnteGuasto[5]){sogliaMax = correnteGuasto[5];}
+
+					sogliaCorrenteB = sogliaMax + 15;
+					modif = 1;
+				}
 			}
 		}
-		
-		if(sogliaCorrenteB != 0){
-			if(correnteGuasto[3] >= sogliaCorrenteB || correnteGuasto[4] >= sogliaCorrenteB || correnteGuasto[5] >= sogliaCorrenteB){
-				sogliaMax = correnteGuasto[3];
-				if(sogliaMax < correnteGuasto[4]){sogliaMax = correnteGuasto[4];}
-				if(sogliaMax < correnteGuasto[5]){sogliaMax = correnteGuasto[5];}
-				
-				sogliaCorrenteB = sogliaMax + 15;
-				modif = 1;
+		else{
+			if(sogliaCorrenteA != 0 &&
+			   (correnteGuasto[0] >= sogliaCorrenteA ||
+			    correnteGuasto[1] >= sogliaCorrenteA ||
+			    correnteGuasto[2] >= sogliaCorrenteA)){
+				correntePersistente = 1;
+			}
+
+			if(sogliaCorrenteB != 0 &&
+			   (correnteGuasto[3] >= sogliaCorrenteB ||
+			    correnteGuasto[4] >= sogliaCorrenteB ||
+			    correnteGuasto[5] >= sogliaCorrenteB)){
+				correntePersistente = 1;
+			}
+
+			if(correntePersistente != 0){
+				/*
+				 * La permanenza viene trattata come un nuovo evento completo:
+				 * nuova acquisizione, salvataggi FRAM/NFC/MySQL e SMS se
+				 * abilitato. exTimerGuasti() riavvia poi il conteggio
+				 * usando l'intervallo configurato.
+				 */
+				inibitGuasto = 0;
+				exTimerGuasti();
 			}
 		}
 		
@@ -339,7 +371,9 @@ void ricalcolaSoglie(void){
 		
 		if(modif==1){
 			sprintf(sms,"overcurrent threshold modified: thrA: %dA  thrB: %dA",sogliaCorrenteA,sogliaCorrenteB);
-			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
+			if(allarmiSMSattivi != 0){
+				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen((char *)sms));
+			}
 		}
 				
 		if(modif == 1){
@@ -461,7 +495,7 @@ void formattaGuasti(void){
 	 * scartiamo eventuali scritture NFC ancora in coda, altrimenti un evento
 	 * vecchio potrebbe essere riscritto dopo l'azzeramento.
 	 */
-	inibitGuasto = 255;
+	inibitGuasto = GUASTO_INIBIZIONE_FORMAT;
 	inibitGuastoSMS = 255;
 	clearNFCpending();
 
@@ -528,11 +562,6 @@ void ultimoGuasto(u8 *outBuf){
 		}
 	}
 }
-
-
-
-
-
 
 
 

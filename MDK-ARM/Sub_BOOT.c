@@ -169,6 +169,8 @@ extern u8 debugDB;
 extern u8 NTPattivo;
 extern u8 addressNTP[50];
 extern u8 allarmiSMSattivi;
+extern u8 adeguamentoSoglieAttivo;
+extern u8 intervalloAllarmeSovracorrenteMinuti;
 
 int netCount = 0;
 
@@ -384,6 +386,18 @@ saveU32fram(Ipot,&indirizzo[0]);
 indirizzo[0] = SMS_ALARM_FRAM_PAGE;
 indirizzo[1] = SMS_ALARM_FRAM_OFFSET;
 data[0] = SMS_ALARM_FRAM_MARKER;
+data[1] = 1U;
+saveArrayFram(&data[0],&indirizzo[0],2);
+
+indirizzo[0] = AUTO_THRESHOLD_FRAM_PAGE;
+indirizzo[1] = AUTO_THRESHOLD_FRAM_OFFSET;
+data[0] = AUTO_THRESHOLD_FRAM_MARKER;
+data[1] = 1U;
+saveArrayFram(&data[0],&indirizzo[0],2);
+
+indirizzo[0] = OVERCURRENT_INTERVAL_FRAM_PAGE;
+indirizzo[1] = OVERCURRENT_INTERVAL_FRAM_OFFSET;
+data[0] = OVERCURRENT_INTERVAL_FRAM_MARKER;
 data[1] = 1U;
 saveArrayFram(&data[0],&indirizzo[0],2);
 
@@ -684,6 +698,45 @@ void avvioSistema(void){
 			allarmiSMSattivi = 1U;
 			data[0] = SMS_ALARM_FRAM_MARKER;
 			data[1] = allarmiSMSattivi;
+			saveArrayFram(&data[0],&indirizzo[0],2);
+		}
+
+		/*
+		 * Abilitazione dell'adeguamento automatico delle soglie di
+		 * sovracorrente. In assenza del marcatore manteniamo il
+		 * comportamento storico: adeguamento abilitato.
+		 */
+		indirizzo[0] = AUTO_THRESHOLD_FRAM_PAGE;
+		indirizzo[1] = AUTO_THRESHOLD_FRAM_OFFSET;
+		ReadArrayFram(&data[0],&indirizzo[0],2);
+
+		if(data[0] == AUTO_THRESHOLD_FRAM_MARKER &&
+		   (data[1] == 0U || data[1] == 1U)){
+			adeguamentoSoglieAttivo = data[1];
+		}
+		else{
+			adeguamentoSoglieAttivo = 1U;
+			data[0] = AUTO_THRESHOLD_FRAM_MARKER;
+			data[1] = adeguamentoSoglieAttivo;
+			saveArrayFram(&data[0],&indirizzo[0],2);
+		}
+
+		/*
+		 * Intervallo fra eventi di sovracorrente persistente, espresso
+		 * in minuti. Il valore storico corrisponde a un minuto.
+		 */
+		indirizzo[0] = OVERCURRENT_INTERVAL_FRAM_PAGE;
+		indirizzo[1] = OVERCURRENT_INTERVAL_FRAM_OFFSET;
+		ReadArrayFram(&data[0],&indirizzo[0],2);
+
+		if(data[0] == OVERCURRENT_INTERVAL_FRAM_MARKER &&
+		   data[1] >= 1U && data[1] <= 60U){
+			intervalloAllarmeSovracorrenteMinuti = data[1];
+		}
+		else{
+			intervalloAllarmeSovracorrenteMinuti = 1U;
+			data[0] = OVERCURRENT_INTERVAL_FRAM_MARKER;
+			data[1] = intervalloAllarmeSovracorrenteMinuti;
 			saveArrayFram(&data[0],&indirizzo[0],2);
 		}
 		

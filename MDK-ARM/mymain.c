@@ -52,6 +52,8 @@ extern long latitudine,longitudine;
 u8 numeroAllarmi[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 allarmiSMSattivi = 1;
+u8 adeguamentoSoglieAttivo = 1;
+u8 intervalloAllarmeSovracorrenteMinuti = 1;
 
 //versione software
 u16 software = 21;
