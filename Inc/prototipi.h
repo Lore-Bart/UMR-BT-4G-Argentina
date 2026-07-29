@@ -22,6 +22,21 @@
 #define OVERCURRENT_INTERVAL_FRAM_PAGE   3U
 #define OVERCURRENT_INTERVAL_FRAM_OFFSET 55U
 #define OVERCURRENT_INTERVAL_FRAM_MARKER 0xA7U
+#define BAT_BACKUP_TIME_FRAM_PAGE         3U
+#define BAT_BACKUP_TIME_FRAM_OFFSET       57U
+#define BAT_BACKUP_TIME_FRAM_MARKER       0xA8U
+
+/*
+ * Tempo di funzionamento massimo senza rete:
+ * - valore memorizzato e usato in minuti;
+ * - 0 disabilita lo spegnimento automatico temporizzato;
+ * - 1...60 imposta il timeout;
+ * - 5 minuti e il valore applicato alla prima installazione del firmware
+ *   o quando in FRAM non e presente una configurazione valida.
+ */
+#define BAT_BACKUP_TIME_DEFAULT_MIN       5U
+#define BAT_BACKUP_TIME_MAX_MIN           60U
+
 #define GUASTO_INIBIZIONE_FORMAT         0xFFFFFFFFUL
 
 typedef uint8_t u8;
@@ -60,7 +75,8 @@ typedef enum
     BAT_STATE_WAIT_TEMPERATURE,
     BAT_STATE_TOO_LOW,
     BAT_STATE_WAKEUP,
-    BAT_STATE_FAULT
+    BAT_STATE_FAULT,
+    BAT_STATE_PLATEAU_REST
 } BatteryState_t;
 
 

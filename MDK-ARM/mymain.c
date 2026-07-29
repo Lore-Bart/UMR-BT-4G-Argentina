@@ -12,6 +12,16 @@
 #define SMS_TEXTMODE_FIRST_DELAY_MS     15000UL
 #define SMS_TEXTMODE_RETRY_MS           60000UL
 
+/*
+ * Tempo minimo, in millisecondi, durante il quale PE15 rimane aperto
+ * all'avvio. Deve essere abbastanza lungo da permettere lo spegnimento
+ * completo quando il dispositivo e alimentato soltanto dalla batteria.
+ *
+ * Con la rete presente il microcontrollore resta alimentato e, trascorso
+ * questo tempo, PE15 viene richiuso normalmente.
+ */
+#define BATTERY_CONNECT_STARTUP_DELAY_MS 3000UL
+
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c3;
@@ -54,6 +64,7 @@ u8 numeroDevice[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 u8 allarmiSMSattivi = 1;
 u8 adeguamentoSoglieAttivo = 1;
 u8 intervalloAllarmeSovracorrenteMinuti = 1;
+u8 tempoSpegnimentoBatteriaMinuti = BAT_BACKUP_TIME_DEFAULT_MIN;
 
 //versione software
 u16 software = 21;
@@ -295,10 +306,13 @@ int mymain(void){
 		u32 tick, tickOld;
 		u32 nextSignalRequestTick = 0;
 		u8 signalSchedulerArmed = 0;
+		u32 tickInizioAttivazioneBatteria;
+		u8 attivazioneBatteriaCompletata = 0U;
 			//da cancellare
 			u8 uartmsg[100];
 			
 	
+	tickInizioAttivazioneBatteria = HAL_GetTick();
 	//Print_ResetFlags(&huart1);
 	print_reset_cause(); // <<<<< QUI
 	resetWD();
@@ -307,8 +321,6 @@ int mymain(void){
 	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,GPIO_PIN_SET); //LED ROSSO ACCESO
 	
 	boot(); //inizializzo le periferiche
-	HAL_GPIO_WritePin(GPIOE,GPIO_PIN_15,GPIO_PIN_SET); //attiva batteria
-	HAL_UART_Transmit(&huart1,(u8*)"batteria attivata\n",18,100);
 	formattaFlashInterna();
 	
 	acquisizioni();
@@ -363,6 +375,32 @@ int mymain(void){
 	
 	
 	while(1){//(riavvio == 0){
+		
+		/*
+		 * Attivazione non bloccante della batteria. Tutte le altre
+		 * inizializzazioni e le acquisizioni possono essere eseguite
+		 * mentre PE15 rimane aperto.
+		 */
+		if(attivazioneBatteriaCompletata == 0U &&
+		   (HAL_GetTick() - tickInizioAttivazioneBatteria) >=
+		       BATTERY_CONNECT_STARTUP_DELAY_MS){
+			HAL_GPIO_WritePin(GPIOE,GPIO_PIN_15,GPIO_PIN_SET);
+			attivazioneBatteriaCompletata = 1U;
+
+			/*
+			 * Richiede esplicitamente il primo controllo soltanto dopo
+			 * che PE15 e stato riattivato. La misura ADC applichera poi
+			 * il proprio ritardo non bloccante di assestamento.
+			 */
+			controlloBatteriaFlag = 1U;
+
+			HAL_UART_Transmit(
+				&huart1,
+				(u8*)"batteria attivata\n",
+				18,
+				100
+			);
+		}
 		
 		cicliMain++;
 		
@@ -619,13 +657,15 @@ int mymain(void){
 			checkOverVoltage();
 		}
 		
-		if(calibrazioneBatteriaAttiva != 0 ||
-		   (calibrazioneBatteriaRichiesta != 0 &&
-		    controlloBatteriaFlag == 0)){
+		if(attivazioneBatteriaCompletata != 0U &&
+		   (calibrazioneBatteriaAttiva != 0 ||
+		    (calibrazioneBatteriaRichiesta != 0 &&
+		     controlloBatteriaFlag == 0))){
 			gestisciCalibrazioneBatteria();
 		}
 
-		if(controlloBatteriaFlag == 1 &&
+		if(attivazioneBatteriaCompletata != 0U &&
+		   controlloBatteriaFlag == 1 &&
 		   calibrazioneBatteriaAttiva == 0){
 			if(controllaBatteria() != 0){
 				controlloBatteriaFlag = 0;

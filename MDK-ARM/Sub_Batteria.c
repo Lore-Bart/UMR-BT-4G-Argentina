@@ -41,6 +41,7 @@ u8 messaggioBatteria = 2;
 u16 timeCarica = 0;
 
 extern u8 alimentatore;
+extern u8 tempoSpegnimentoBatteriaMinuti;
 
 extern u8 BTattivo;
 
@@ -260,7 +261,7 @@ long temperatura = 0;
  *
  * BAT_PLATEAU_SAMPLES:
  *   numero totale di misure nella finestra mobile. Con una misura ogni
- *   15 s, 40 campioni corrispondono a circa 10 minuti. Deve essere
+ *   15 s, 80 campioni corrispondono a circa 20 minuti. Deve essere
  *   compreso fra 1 e 255 perche indici e contatori sono u8.
  *
  * BAT_PLATEAU_AVERAGE_SAMPLES:
@@ -273,18 +274,51 @@ long temperatura = 0;
  *   massimo aumento ammesso fra media iniziale e finale. Un valore piu
  *   basso rende piu difficile riconoscere il plateau.
  *
+ * BAT_PLATEAU_MAX_FALL_MV:
+ *   massima diminuzione ammessa fra media iniziale e finale. Senza questo
+ *   limite una tensione in discesa rispetterebbe sempre il solo controllo
+ *   MAX_RISE. Deve essere abbastanza grande da tollerare il rumore ma
+ *   molto piu piccolo di una reale caduta della batteria.
+ *
  * BAT_PLATEAU_MAX_SPAN_MV:
  *   massima differenza fra il minimo e il massimo dell'intera finestra.
  *   Deve essere almeno pari al rumore reale della misura. Se e troppo
  *   basso il plateau non viene mai riconosciuto; se e troppo alto si
  *   rischia un arresto prematuro.
+ *
+ * BAT_PLATEAU_CONFIRM_COUNT:
+ *   numero di finestre mobili consecutive che devono rispettare tutti i
+ *   criteri prima di iniziare la verifica a riposo. Intervallo 1...255;
+ *   con misure ogni 15 s, 8 conferme aggiungono circa 2 minuti. Il valore
+ *   0 non deve essere usato.
+ *
+ * VERIFICA A RIPOSO:
+ *   dopo la conferma del plateau PC1 resta spento per
+ *   BAT_PLATEAU_REST_TIME_MS. Al termine la carica e dichiarata completa
+ *   soltanto se:
+ *   - la tensione e almeno BAT_PLATEAU_REST_MIN_MV;
+ *   - la caduta rispetto all'inizio del riposo non supera
+ *     BAT_PLATEAU_REST_MAX_DROP_MV.
+ *
+ * BAT_PLATEAU_REST_TIME_MS deve essere > 0 e molto inferiore a 2^31 ms.
+ * REST_MIN deve essere inferiore a VBAT_CHARGE_STOP_MV e, normalmente,
+ * non superiore a BAT_PLATEAU_MIN_MV. REST_MAX_DROP deve essere maggiore
+ * del rumore reale ma abbastanza piccolo da respingere un falso plateau.
+ *
+ * Se la verifica fallisce, la sessione resta attiva, le finestre vengono
+ * azzerate e la carica riparte automaticamente.
  */
 #define BAT_PLATEAU_TERMINATION_ENABLED  1U
 #define BAT_PLATEAU_MIN_MV               7920U
-#define BAT_PLATEAU_SAMPLES              40U
-#define BAT_PLATEAU_AVERAGE_SAMPLES      4U
-#define BAT_PLATEAU_MAX_RISE_MV          10U
+#define BAT_PLATEAU_SAMPLES              80U
+#define BAT_PLATEAU_AVERAGE_SAMPLES      8U
+#define BAT_PLATEAU_MAX_RISE_MV          5U
+#define BAT_PLATEAU_MAX_FALL_MV          5U
 #define BAT_PLATEAU_MAX_SPAN_MV          20U
+#define BAT_PLATEAU_CONFIRM_COUNT        8U
+#define BAT_PLATEAU_REST_TIME_MS         (2UL * 60UL * 1000UL)
+#define BAT_PLATEAU_REST_MIN_MV          7900U
+#define BAT_PLATEAU_REST_MAX_DROP_MV     50U
 
 /*
  * Watchdog di avanzamento della carica nella fascia precedente al
@@ -547,23 +581,16 @@ long temperatura = 0;
 #define BAT_TIMEOUT_RESTART_CONFIRM_COUNT 3U
 
 /*
- * Durata massima continuativa del funzionamento senza rete, espressa
- * in millisecondi. Alla scadenza PE15 viene aperto e il dispositivo,
- * alimentato soltanto dalla batteria, si spegne.
+ * Il timeout del funzionamento a batteria non e una costante locale:
+ * tempoSpegnimentoBatteriaMinuti viene caricato dalla FRAM all'avvio e
+ * puo essere aggiornato con il comando Bluetooth 0x63.
  *
- * Il ritorno della rete prima della scadenza annulla il conteggio.
- * Alla successiva mancanza rete il timer riparte da zero.
- *
- * Usare un valore > 0 e molto inferiore a 2^31 ms (circa 24,8 giorni),
- * cosi il confronto basato su HAL_GetTick() resta privo di ambiguita.
- * Il valore 0 provocherebbe lo spegnimento al controllo successivo e
- * NON significa "funzione disabilitata".
- *
- * Esempi:
- *   10 minuti = (10UL * 60UL * 1000UL)
- *   30 minuti = (30UL * 60UL * 1000UL)
+ * 0 disabilita esclusivamente questo spegnimento temporizzato.
+ * I valori 1...60 indicano i minuti continuativi senza rete; il ritorno
+ * della rete azzera il conteggio e la successiva interruzione riparte da
+ * zero. Le aperture di PE15 per sottotensione o temperatura rimangono
+ * sempre indipendenti da questa impostazione.
  */
-#define BAT_BACKUP_MAX_TIME_MS            (10UL * 60UL * 1000UL)
 
 /*
  * Durata minima continuativa senza rete necessaria per considerare
@@ -592,7 +619,7 @@ long temperatura = 0;
  * stati. 0 stampa a ogni misura completata. Valore u32; restare molto
  * sotto 2^31 ms per un confronto temporale semplice e leggibile.
  */
-#define BAT_LOG_INTERVAL_MS               15000UL
+#define BAT_LOG_INTERVAL_MS               60000UL
 
 
 
@@ -626,6 +653,10 @@ static u8 logBatteriaInizializzato = 0;
 static u16 campioniPlateau[BAT_PLATEAU_SAMPLES];
 static u8 indiceCampionePlateau = 0;
 static u8 numeroCampioniPlateau = 0;
+static u8 contatoreConfermaPlateau = 0;
+static u8 verificaRiposoPlateauAttiva = 0;
+static u32 tickInizioRiposoPlateau = 0;
+static u32 tensioneInizioRiposoPlateau_mV = 0;
 
 static u32 sommaRiferimentoStallo = 0;
 static u8 campioniRiferimentoStallo = 0;
@@ -946,13 +977,26 @@ static void resetControlloPlateau(void)
 {
     indiceCampionePlateau = 0U;
     numeroCampioniPlateau = 0U;
+    contatoreConfermaPlateau = 0U;
+}
+
+
+/*
+ * Termina un'eventuale verifica a riposo senza modificare lo stato
+ * generale della sessione di carica.
+ */
+static void resetVerificaRiposoPlateau(void)
+{
+    verificaRiposoPlateauAttiva = 0U;
+    tickInizioRiposoPlateau = 0U;
+    tensioneInizioRiposoPlateau_mV = 0U;
 }
 
 
 /*
  * Inserisce una misura nella finestra mobile e verifica che:
- * - la media finale non sia salita oltre BAT_PLATEAU_MAX_RISE_MV
- *   rispetto alla media iniziale;
+ * - la differenza fra media finale e iniziale resti compresa fra
+ *   -BAT_PLATEAU_MAX_FALL_MV e BAT_PLATEAU_MAX_RISE_MV;
  * - l'escursione totale resti entro BAT_PLATEAU_MAX_SPAN_MV.
  */
 static u8 aggiornaControlloPlateau(
@@ -1045,7 +1089,8 @@ static u8 aggiornaControlloPlateau(
         (int32_t)mediaFinale - (int32_t)mediaIniziale;
     *escursione_mV = (u32)massimo - (u32)minimo;
 
-    if(*incremento_mV <= (int32_t)BAT_PLATEAU_MAX_RISE_MV &&
+    if(*incremento_mV >= -(int32_t)BAT_PLATEAU_MAX_FALL_MV &&
+       *incremento_mV <= (int32_t)BAT_PLATEAU_MAX_RISE_MV &&
        *escursione_mV <= BAT_PLATEAU_MAX_SPAN_MV)
     {
         return 1U;
@@ -1225,6 +1270,9 @@ static const char *nomeStatoBatteria(BatteryState_t stato)
         case BAT_STATE_FAULT:
             return "FAULT";
 
+        case BAT_STATE_PLATEAU_REST:
+            return "PLATEAU_REST";
+
         default:
             return "UNKNOWN";
     }
@@ -1299,6 +1347,7 @@ void resetFaultCaricaBatteria(void)
     sessioneCaricaInterrottaDaRete = 0U;
 
     resetControlloPlateau();
+    resetVerificaRiposoPlateau();
     resetControlloStalloCarica();
     resetFiltroTensioneScarica();
     livelloBatteriaInizializzato = 0U;
@@ -2149,6 +2198,7 @@ u8 controllaBatteria(void)
                 contatoreArresto = 0U;
                 contatoreDutyCycle = 0U;
                 resetControlloPlateau();
+                resetVerificaRiposoPlateau();
                 resetControlloStalloCarica();
 
                 snprintf(
@@ -2203,9 +2253,11 @@ u8 controllaBatteria(void)
             tickInizioFunzionamentoBatteria = tickAttuale;
             timerFunzionamentoBatteriaAttivo = 1U;
         }
-        else if(spegnimentoTempoBatteriaAttivo == 0U &&
+        else if(tempoSpegnimentoBatteriaMinuti != 0U &&
+                spegnimentoTempoBatteriaAttivo == 0U &&
                 (tickAttuale - tickInizioFunzionamentoBatteria) >=
-                    BAT_BACKUP_MAX_TIME_MS)
+                    ((u32)tempoSpegnimentoBatteriaMinuti *
+                     60UL * 1000UL))
         {
             spegnimentoTempoBatteriaAttivo = 1U;
 
@@ -2213,7 +2265,7 @@ u8 controllaBatteria(void)
                 uart,
                 sizeof(uart),
                 "[BAT] Backup time expired: %lus, disconnecting PE15\r\n",
-                (unsigned long)(BAT_BACKUP_MAX_TIME_MS / 1000UL)
+                (unsigned long)tempoSpegnimentoBatteriaMinuti * 60UL
             );
 
             HAL_UART_Transmit(
@@ -2696,6 +2748,7 @@ u8 controllaBatteria(void)
             tensioneArrestoTimeout_mV = 0U;
             contatoreRiarmoTimeout = 0U;
             resetControlloPlateau();
+            resetVerificaRiposoPlateau();
             resetControlloStalloCarica();
         }
     }
@@ -2855,7 +2908,18 @@ u8 controllaBatteria(void)
         /* Sessione di carica attiva. */
         if(sessioneCaricaAttiva != 0 && caricaCompleta == 0)
         {
-            if(tensioneMisurata_mV >= VBAT_CHARGE_STOP_MV)
+            if(verificaRiposoPlateauAttiva != 0U)
+            {
+                /*
+                 * Il candidato plateau e gia stato riconosciuto:
+                 * PC1 resta spento fino al termine della verifica.
+                 */
+                statoCaricaBatteria = BAT_STATE_PLATEAU_REST;
+                comandoCarica = 0U;
+                dutyPercentuale = 0U;
+                contatoreArresto = 0U;
+            }
+            else if(tensioneMisurata_mV >= VBAT_CHARGE_STOP_MV)
             {
                 statoCaricaBatteria = BAT_STATE_STOP_CONFIRM;
                 comandoCarica = 0;
@@ -3011,26 +3075,153 @@ u8 controllaBatteria(void)
     }
 
     /* =============================================================
-     * 7. ARRESTO PER PLATEAU DELLA TENSIONE
+     * 7. PLATEAU E VERIFICA A RIPOSO
      * =============================================================
-     * Questa verifica usa ogni misura valida della batteria ed e
-     * completamente indipendente dalla frequenza del log seriale.
+     * Prima fase:
+     * - finestra mobile di BAT_PLATEAU_SAMPLES;
+     * - pendenza limitata sia in salita sia in discesa;
+     * - escursione complessiva limitata;
+     * - BAT_PLATEAU_CONFIRM_COUNT finestre valide consecutive.
      *
-     * Con la carica pulsata disabilitata, una tensione stabile nella
-     * fascia finale indica che la batteria non sta piu assorbendo carica
-     * in modo apprezzabile. La sessione viene quindi conclusa senza
-     * attendere il timeout totale.
+     * Seconda fase:
+     * - PC1 spento per BAT_PLATEAU_REST_TIME_MS;
+     * - controllo della tensione rilassata e della caduta.
+     *
+     * Soltanto la seconda fase puo dichiarare la carica completa.
      */
-    if(BAT_PLATEAU_TERMINATION_ENABLED != 0U &&
-       BAT_PULSED_CHARGE_ENABLED == 0U &&
-       alimentatore != 0 &&
-       adcValido != 0 &&
-       temperaturaValida != 0 &&
-       faultCaricaLatched == BAT_FAULT_NONE &&
-       sessioneCaricaAttiva != 0 &&
-       comandoCarica != 0 &&
-       tensioneMisurata_mV >= BAT_PLATEAU_MIN_MV &&
-       tensioneMisurata_mV < VBAT_CHARGE_STOP_MV)
+    if(verificaRiposoPlateauAttiva != 0U)
+    {
+        if(BAT_PLATEAU_TERMINATION_ENABLED != 0U &&
+           BAT_PULSED_CHARGE_ENABLED == 0U &&
+           alimentatore != 0 &&
+           adcValido != 0 &&
+           temperaturaValida != 0 &&
+           bloccoTemperatura == 0U &&
+           bloccoTemperaturaBassa == 0U &&
+           faultCaricaLatched == BAT_FAULT_NONE &&
+           sessioneCaricaAttiva != 0U)
+        {
+            u32 durataRiposoPlateau_ms =
+                tickAttuale - tickInizioRiposoPlateau;
+
+            statoCaricaBatteria = BAT_STATE_PLATEAU_REST;
+            comandoCarica = 0U;
+            dutyPercentuale = 0U;
+
+            if(durataRiposoPlateau_ms >= BAT_PLATEAU_REST_TIME_MS)
+            {
+                u32 cadutaRiposoPlateau_mV = 0U;
+                u8 riposoConfermato = 0U;
+
+                if(tensioneInizioRiposoPlateau_mV >
+                   tensioneMisurata_mV)
+                {
+                    cadutaRiposoPlateau_mV =
+                        tensioneInizioRiposoPlateau_mV -
+                        tensioneMisurata_mV;
+                }
+
+                if(tensioneMisurata_mV >=
+                       BAT_PLATEAU_REST_MIN_MV &&
+                   cadutaRiposoPlateau_mV <=
+                       BAT_PLATEAU_REST_MAX_DROP_MV)
+                {
+                    riposoConfermato = 1U;
+                }
+
+                if(riposoConfermato != 0U)
+                {
+                    caricaCompleta = 1U;
+                    sessioneCaricaAttiva = 0U;
+                    comandoCarica = 0U;
+                    dutyPercentuale = 0U;
+                    contatoreAvvio = 0U;
+                    contatoreArresto = 0U;
+                    contatoreDutyCycle = 0U;
+                    statoCaricaBatteria = BAT_STATE_FULL;
+
+                    snprintf(
+                        uart,
+                        sizeof(uart),
+                        "[BAT] Charge complete: PLATEAU_REST "
+                        "Start=%lu.%03luV Rest=%lu.%03luV "
+                        "Drop=%lumV Time=%lus\r\n",
+                        (unsigned long)
+                            (tensioneInizioRiposoPlateau_mV / 1000U),
+                        (unsigned long)
+                            (tensioneInizioRiposoPlateau_mV % 1000U),
+                        (unsigned long)
+                            (tensioneMisurata_mV / 1000U),
+                        (unsigned long)
+                            (tensioneMisurata_mV % 1000U),
+                        (unsigned long)cadutaRiposoPlateau_mV,
+                        (unsigned long)
+                            (durataRiposoPlateau_ms / 1000UL)
+                    );
+                }
+                else
+                {
+                    /*
+                     * Il plateau non ha retto a riposo. La sessione
+                     * rimane attiva e riparte da BULK con una finestra
+                     * completamente nuova.
+                     */
+                    statoCaricaBatteria = BAT_STATE_BULK;
+                    comandoCarica = 1U;
+                    dutyPercentuale = 100U;
+
+                    snprintf(
+                        uart,
+                        sizeof(uart),
+                        "[BAT] Plateau rejected after rest: "
+                        "Start=%lu.%03luV Rest=%lu.%03luV "
+                        "Drop=%lumV Time=%lus; charge resumed\r\n",
+                        (unsigned long)
+                            (tensioneInizioRiposoPlateau_mV / 1000U),
+                        (unsigned long)
+                            (tensioneInizioRiposoPlateau_mV % 1000U),
+                        (unsigned long)
+                            (tensioneMisurata_mV / 1000U),
+                        (unsigned long)
+                            (tensioneMisurata_mV % 1000U),
+                        (unsigned long)cadutaRiposoPlateau_mV,
+                        (unsigned long)
+                            (durataRiposoPlateau_ms / 1000UL)
+                    );
+                }
+
+                HAL_UART_Transmit(
+                    &huart1,
+                    (u8 *)uart,
+                    strlen(uart),
+                    300
+                );
+
+                resetControlloPlateau();
+                resetVerificaRiposoPlateau();
+                resetControlloStalloCarica();
+            }
+        }
+        else
+        {
+            /*
+             * Rete, ADC, temperatura, sessione o fault non consentono
+             * di proseguire una verifica attendibile.
+             */
+            resetControlloPlateau();
+            resetVerificaRiposoPlateau();
+        }
+    }
+    else if(BAT_PLATEAU_TERMINATION_ENABLED != 0U &&
+            BAT_PULSED_CHARGE_ENABLED == 0U &&
+            alimentatore != 0 &&
+            adcValido != 0 &&
+            temperaturaValida != 0 &&
+            faultCaricaLatched == BAT_FAULT_NONE &&
+            sessioneCaricaAttiva != 0U &&
+            comandoCarica != 0U &&
+            tensioneMisurata_mV >= BAT_PLATEAU_MIN_MV &&
+            tensioneMisurata_mV < VBAT_CHARGE_STOP_MV)
     {
         if(aggiornaControlloPlateau(
                tensioneMisurata_mV,
@@ -3038,35 +3229,56 @@ u8 controllaBatteria(void)
                &escursionePlateau_mV
            ) != 0U)
         {
-            caricaCompleta = 1;
-            sessioneCaricaAttiva = 0;
-            comandoCarica = 0;
-            dutyPercentuale = 0;
-            contatoreAvvio = 0;
-            contatoreArresto = 0;
-            contatoreDutyCycle = 0;
-            statoCaricaBatteria = BAT_STATE_FULL;
+            if(contatoreConfermaPlateau <
+               BAT_PLATEAU_CONFIRM_COUNT)
+            {
+                contatoreConfermaPlateau++;
+            }
 
-            snprintf(
-                uart,
-                sizeof(uart),
-                "[BAT] Charge complete: PLATEAU V=%lu.%03luV "
-                "Rise=%ldmV Span=%lumV Samples=%u\r\n",
-                (unsigned long)(tensioneMisurata_mV / 1000U),
-                (unsigned long)(tensioneMisurata_mV % 1000U),
-                (long)incrementoPlateau_mV,
-                (unsigned long)escursionePlateau_mV,
-                (unsigned int)BAT_PLATEAU_SAMPLES
-            );
+            if(contatoreConfermaPlateau >=
+               BAT_PLATEAU_CONFIRM_COUNT)
+            {
+                verificaRiposoPlateauAttiva = 1U;
+                tickInizioRiposoPlateau = tickAttuale;
+                tensioneInizioRiposoPlateau_mV =
+                    tensioneMisurata_mV;
 
-            HAL_UART_Transmit(
-                &huart1,
-                (u8 *)uart,
-                strlen(uart),
-                300
-            );
+                statoCaricaBatteria = BAT_STATE_PLATEAU_REST;
+                comandoCarica = 0U;
+                dutyPercentuale = 0U;
+                contatoreArresto = 0U;
+                contatoreDutyCycle = 0U;
 
-            resetControlloPlateau();
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Plateau candidate: V=%lu.%03luV "
+                    "Rise=%ldmV Span=%lumV Samples=%u "
+                    "Confirm=%u; rest started for %lus\r\n",
+                    (unsigned long)(tensioneMisurata_mV / 1000U),
+                    (unsigned long)(tensioneMisurata_mV % 1000U),
+                    (long)incrementoPlateau_mV,
+                    (unsigned long)escursionePlateau_mV,
+                    (unsigned int)BAT_PLATEAU_SAMPLES,
+                    (unsigned int)BAT_PLATEAU_CONFIRM_COUNT,
+                    (unsigned long)
+                        (BAT_PLATEAU_REST_TIME_MS / 1000UL)
+                );
+
+                HAL_UART_Transmit(
+                    &huart1,
+                    (u8 *)uart,
+                    strlen(uart),
+                    300
+                );
+
+                resetControlloPlateau();
+                resetControlloStalloCarica();
+            }
+        }
+        else
+        {
+            contatoreConfermaPlateau = 0U;
         }
     }
     else

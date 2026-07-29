@@ -171,6 +171,7 @@ extern u8 addressNTP[50];
 extern u8 allarmiSMSattivi;
 extern u8 adeguamentoSoglieAttivo;
 extern u8 intervalloAllarmeSovracorrenteMinuti;
+extern u8 tempoSpegnimentoBatteriaMinuti;
 
 int netCount = 0;
 
@@ -359,7 +360,7 @@ saveArrayFram(&data[0],&indirizzo[0],1);
 indirizzo[1] = 1;
 saveArrayFram(&defaultPassword[0],&indirizzo[0],10); //salvo la password di default
 copiaArray(&password[0],&defaultPassword[0],4); //imposto la password uguale alla default password
-indirizzo[1] = 5; //formatto tutto quello che c'è dopo nella pagina delle impostazioni
+indirizzo[1] = 5; //formatto tutto quello che c'Ã¨ dopo nella pagina delle impostazioni
 saveArrayFram(&formattatore[0],&indirizzo[0],251);
 indirizzo[0] = 1;
 indirizzo[1] = 0;
@@ -399,6 +400,12 @@ indirizzo[0] = OVERCURRENT_INTERVAL_FRAM_PAGE;
 indirizzo[1] = OVERCURRENT_INTERVAL_FRAM_OFFSET;
 data[0] = OVERCURRENT_INTERVAL_FRAM_MARKER;
 data[1] = 1U;
+saveArrayFram(&data[0],&indirizzo[0],2);
+
+indirizzo[0] = BAT_BACKUP_TIME_FRAM_PAGE;
+indirizzo[1] = BAT_BACKUP_TIME_FRAM_OFFSET;
+data[0] = BAT_BACKUP_TIME_FRAM_MARKER;
+data[1] = BAT_BACKUP_TIME_DEFAULT_MIN;
 saveArrayFram(&data[0],&indirizzo[0],2);
 
 }
@@ -737,6 +744,26 @@ void avvioSistema(void){
 			intervalloAllarmeSovracorrenteMinuti = 1U;
 			data[0] = OVERCURRENT_INTERVAL_FRAM_MARKER;
 			data[1] = intervalloAllarmeSovracorrenteMinuti;
+			saveArrayFram(&data[0],&indirizzo[0],2);
+		}
+
+		/*
+		 * Tempo massimo di funzionamento a batteria, in minuti.
+		 * Sono validi anche 0 (timeout disabilitato) e 60.
+		 */
+		indirizzo[0] = BAT_BACKUP_TIME_FRAM_PAGE;
+		indirizzo[1] = BAT_BACKUP_TIME_FRAM_OFFSET;
+		ReadArrayFram(&data[0],&indirizzo[0],2);
+
+		if(data[0] == BAT_BACKUP_TIME_FRAM_MARKER &&
+		   data[1] <= BAT_BACKUP_TIME_MAX_MIN){
+			tempoSpegnimentoBatteriaMinuti = data[1];
+		}
+		else{
+			tempoSpegnimentoBatteriaMinuti =
+				BAT_BACKUP_TIME_DEFAULT_MIN;
+			data[0] = BAT_BACKUP_TIME_FRAM_MARKER;
+			data[1] = tempoSpegnimentoBatteriaMinuti;
 			saveArrayFram(&data[0],&indirizzo[0],2);
 		}
 		

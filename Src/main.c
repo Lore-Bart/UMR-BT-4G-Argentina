@@ -551,8 +551,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
 
-  /* PE15 mantiene collegata la batteria fin dall'inizializzazione. */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+  /*
+   * PE15 parte aperto. Viene richiuso dal firmware soltanto dopo il
+   * ritardo di avvio, evitando che un reset alimentato dalla sola
+   * batteria annulli immediatamente il comando di spegnimento.
+   */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_5 

@@ -68,6 +68,7 @@ extern u8 numeroDevice[20];
 extern u8 allarmiSMSattivi;
 extern u8 adeguamentoSoglieAttivo;
 extern u8 intervalloAllarmeSovracorrenteMinuti;
+extern u8 tempoSpegnimentoBatteriaMinuti;
 extern u32 inibitGuasto;
 
 
@@ -801,6 +802,23 @@ void eseguiComandoBT(uint8_t *messaggio){
 					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
 				}
 				break;
+
+			case 0x63: //imposta timeout spegnimento a batteria [minuti]
+				if(messaggio[pwOff+2] <=
+				   BAT_BACKUP_TIME_MAX_MIN){
+					tempoSpegnimentoBatteriaMinuti =
+						messaggio[pwOff+2];
+					data[0] = BAT_BACKUP_TIME_FRAM_MARKER;
+					data[1] = tempoSpegnimentoBatteriaMinuti;
+					addressFram[0] = BAT_BACKUP_TIME_FRAM_PAGE;
+					addressFram[1] = BAT_BACKUP_TIME_FRAM_OFFSET;
+					saveArrayFram(&data[0],&addressFram[0],2);
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				}
+				else{
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+				}
+				break;
 						
 			case 0xff: //controllo password
 				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
@@ -1175,7 +1193,6 @@ void bluetoothID(u8* ID){
 	
 	
 }
-
 
 
 
