@@ -383,6 +383,39 @@ long temperatura = 0;
  */
 
 /*
+ * Limite inferiore per il funzionamento del dispositivo:
+ *
+ * - sotto TEMP_MCU_OPERATION_MIN_C PE15 viene aperto;
+ * - PE15 viene ricollegato soltanto a
+ *   TEMP_MCU_OPERATION_RESTART_C o oltre.
+ *
+ * Deve valere MIN < RESTART. La differenza e l'isteresi che evita
+ * aperture e chiusure ripetute vicino alla soglia. Entrambi i valori
+ * devono essere compresi fra TEMP_SENSOR_MIN_VALID_C e
+ * TEMP_SENSOR_MAX_VALID_C.
+ *
+ * ATTENZIONE: questa protezione usa la temperatura interna dello STM32.
+ * La temperatura reale della batteria puo essere diversa.
+ */
+#define TEMP_MCU_OPERATION_MIN_C          (-10L)
+#define TEMP_MCU_OPERATION_RESTART_C      (-5L)
+
+/*
+ * Limite inferiore per la carica:
+ *
+ * - sotto TEMP_MCU_CHARGE_MIN_C PC1 resta spento;
+ * - dopo un blocco per temperatura bassa, la carica puo riprendere
+ *   soltanto a TEMP_MCU_CHARGE_MIN_RESTART_C o oltre.
+ *
+ * Deve valere MIN < MIN_RESTART. Le soglie devono essere superiori
+ * alle soglie minime di funzionamento e inferiori alle soglie massime
+ * di carica. A esattamente TEMP_MCU_CHARGE_MIN_C la carica e ammessa
+ * se il blocco per bassa temperatura non era gia attivo.
+ */
+#define TEMP_MCU_CHARGE_MIN_C              7L
+#define TEMP_MCU_CHARGE_MIN_RESTART_C     10L
+
+/*
  * A TEMP_MCU_CHARGE_MAX_C o oltre viene sospesa la sola carica.
  * La carica puo riprendere soltanto a TEMP_MCU_CHARGE_RESTART_C o meno.
  *
@@ -397,10 +430,16 @@ long temperatura = 0;
  * Protezione termica estrema con isteresi. A EMERGENCY o oltre PE15
  * viene aperto; viene richiuso soltanto a EMERGENCY_RESTART o meno.
  *
- * Deve valere:
+ * Ordinamento complessivo raccomandato:
  *
- *   TEMP_MCU_CHARGE_RESTART_C < TEMP_MCU_CHARGE_MAX_C
- *       < TEMP_MCU_EMERGENCY_RESTART_C < TEMP_MCU_EMERGENCY_C
+ *   TEMP_MCU_OPERATION_MIN_C
+ *       < TEMP_MCU_OPERATION_RESTART_C
+ *       < TEMP_MCU_CHARGE_MIN_C
+ *       < TEMP_MCU_CHARGE_MIN_RESTART_C
+ *       < TEMP_MCU_CHARGE_RESTART_C
+ *       < TEMP_MCU_CHARGE_MAX_C
+ *       < TEMP_MCU_EMERGENCY_RESTART_C
+ *       < TEMP_MCU_EMERGENCY_C
  *
  * Cosi la carica e gia ferma prima di scollegare la batteria. Se le fasce
  * vengono sovrapposte il firmware resta comunque deterministico, ma PE15
@@ -508,6 +547,46 @@ long temperatura = 0;
 #define BAT_TIMEOUT_RESTART_CONFIRM_COUNT 3U
 
 /*
+ * Durata massima continuativa del funzionamento senza rete, espressa
+ * in millisecondi. Alla scadenza PE15 viene aperto e il dispositivo,
+ * alimentato soltanto dalla batteria, si spegne.
+ *
+ * Il ritorno della rete prima della scadenza annulla il conteggio.
+ * Alla successiva mancanza rete il timer riparte da zero.
+ *
+ * Usare un valore > 0 e molto inferiore a 2^31 ms (circa 24,8 giorni),
+ * cosi il confronto basato su HAL_GetTick() resta privo di ambiguita.
+ * Il valore 0 provocherebbe lo spegnimento al controllo successivo e
+ * NON significa "funzione disabilitata".
+ *
+ * Esempi:
+ *   10 minuti = (10UL * 60UL * 1000UL)
+ *   30 minuti = (30UL * 60UL * 1000UL)
+ */
+#define BAT_BACKUP_MAX_TIME_MS            (10UL * 60UL * 1000UL)
+
+/*
+ * Durata minima continuativa senza rete necessaria per considerare
+ * interrotta una sessione di carica.
+ *
+ * Se la rete ritorna dopo almeno questo tempo e, al momento della sua
+ * scomparsa, sessioneCaricaAttiva era diversa da zero, vengono azzerati:
+ * - timer totale e timer TOP della carica;
+ * - contatori di avvio, arresto e duty cycle;
+ * - finestre del plateau e del watchdog di stallo.
+ *
+ * La sessione non viene forzata e gli eventuali fault latched non vengono
+ * cancellati. Un valore 0 qualificherebbe qualsiasi interruzione, anche
+ * un disturbo molto breve. Usare un valore > 0 e molto inferiore a
+ * 2^31 ms per mantenere non ambiguo il confronto con HAL_GetTick().
+ *
+ * Esempi:
+ *    1 minuto  = (60UL * 1000UL)
+ *    5 minuti = (5UL * 60UL * 1000UL)
+ */
+#define BAT_CHARGE_SESSION_RESET_OFF_TIME_MS (60UL * 1000UL)
+
+/*
  * Intervallo minimo, in millisecondi, fra due log riepilogativi [BAT].
  * Non cambia la frequenza delle misure, dei fault o della macchina a
  * stati. 0 stampa a ogni misura completata. Valore u32; restare molto
@@ -527,6 +606,7 @@ static BatteryFault_t faultCaricaLatched = BAT_FAULT_NONE;
 static u8 sessioneCaricaAttiva = 0;
 static u8 caricaCompleta = 0;
 static u8 bloccoTemperatura = 0;
+static u8 bloccoTemperaturaBassa = 0;
 
 static u8 contatoreAvvio = 0;
 static u8 contatoreArresto = 0;
@@ -567,6 +647,16 @@ static u32 tickConfermaSottotensione = 0;
 static u32 primaTensioneSottotensione_mV = 0;
 static u8 disconnessioneSottotensioneAttiva = 0;
 static u8 disconnessioneTermicaAttiva = 0;
+static u8 disconnessioneTemperaturaBassaAttiva = 0;
+
+static u8 timerFunzionamentoBatteriaAttivo = 0;
+static u8 spegnimentoTempoBatteriaAttivo = 0;
+static u32 tickInizioFunzionamentoBatteria = 0;
+
+static u8 statoReteBatteriaInizializzato = 0;
+static u8 alimentatorePrecedenteBatteria = 0;
+static u8 sessioneCaricaInterrottaDaRete = 0;
+static u32 tickInizioInterruzioneRete = 0;
 
 u8 calibrazioneBatteriaRichiesta = 0;
 u8 calibrazioneBatteriaAttiva = 0;
@@ -1195,6 +1285,7 @@ void resetFaultCaricaBatteria(void)
     sessioneCaricaAttiva = 0;
     caricaCompleta = 0;
     bloccoTemperatura = 0;
+    bloccoTemperaturaBassa = 0;
 
     contatoreAvvio = 0;
     contatoreArresto = 0;
@@ -1205,6 +1296,7 @@ void resetFaultCaricaBatteria(void)
     tempoTopCaricaOn_s = 0;
     tensioneArrestoTimeout_mV = 0;
     contatoreRiarmoTimeout = 0;
+    sessioneCaricaInterrottaDaRete = 0U;
 
     resetControlloPlateau();
     resetControlloStalloCarica();
@@ -1825,7 +1917,8 @@ static BatteryAdcMeasurement_t misuraAdcBatteria(void)
          * non bloccante BAT_MEASURE_DELAY.
          */
         if(alimentatore != 0 &&
-           disconnessioneTermicaAttiva == 0U)
+           disconnessioneTermicaAttiva == 0U &&
+           disconnessioneTemperaturaBassaAttiva == 0U)
         {
             HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
         }
@@ -2010,13 +2103,142 @@ u8 controllaBatteria(void)
     tickAttuale = HAL_GetTick();
 
     /*
-     * Il ritorno dell'alimentatore rende nuovamente possibile la carica
-     * e quindi rimuove il latch usato per mantenere aperto PE15 dopo una
-     * sottotensione durante il funzionamento a batteria.
+     * Rileva i fronti dell'alimentatore per distinguere una breve
+     * interruzione da una vera fase di funzionamento a batteria.
+     *
+     * Viene memorizzato se la sessione era attiva sul fronte di discesa.
+     * Al ritorno della rete, dopo il tempo minimo configurato, si assegna
+     * alla sessione un nuovo budget temporale senza alterare fault o stato.
+     */
+    if(statoReteBatteriaInizializzato == 0U)
+    {
+        alimentatorePrecedenteBatteria =
+            (alimentatore != 0) ? 1U : 0U;
+        statoReteBatteriaInizializzato = 1U;
+
+        if(alimentatorePrecedenteBatteria == 0U)
+        {
+            tickInizioInterruzioneRete = tickAttuale;
+            sessioneCaricaInterrottaDaRete =
+                (sessioneCaricaAttiva != 0U) ? 1U : 0U;
+        }
+    }
+    else if(alimentatorePrecedenteBatteria !=
+            ((alimentatore != 0) ? 1U : 0U))
+    {
+        if(alimentatore == 0)
+        {
+            /* Fronte rete presente -> rete assente. */
+            tickInizioInterruzioneRete = tickAttuale;
+            sessioneCaricaInterrottaDaRete =
+                (sessioneCaricaAttiva != 0U) ? 1U : 0U;
+        }
+        else
+        {
+            /* Fronte rete assente -> rete presente. */
+            u32 durataInterruzioneRete_ms =
+                tickAttuale - tickInizioInterruzioneRete;
+
+            if(sessioneCaricaInterrottaDaRete != 0U &&
+               durataInterruzioneRete_ms >=
+                   BAT_CHARGE_SESSION_RESET_OFF_TIME_MS)
+            {
+                tempoTotaleCaricaOn_s = 0U;
+                tempoTopCaricaOn_s = 0U;
+                contatoreAvvio = 0U;
+                contatoreArresto = 0U;
+                contatoreDutyCycle = 0U;
+                resetControlloPlateau();
+                resetControlloStalloCarica();
+
+                snprintf(
+                    uart,
+                    sizeof(uart),
+                    "[BAT] Charge timers reset: AC off for %lus\r\n",
+                    (unsigned long)(durataInterruzioneRete_ms / 1000UL)
+                );
+
+                HAL_UART_Transmit(
+                    &huart1,
+                    (u8 *)uart,
+                    strlen(uart),
+                    300
+                );
+            }
+
+            sessioneCaricaInterrottaDaRete = 0U;
+            tickInizioInterruzioneRete = 0U;
+        }
+
+        alimentatorePrecedenteBatteria =
+            (alimentatore != 0) ? 1U : 0U;
+    }
+
+    /*
+     * Il ritorno dell'alimentatore:
+     * - rimuove il latch di sottotensione;
+     * - annulla il timer del funzionamento a batteria;
+     * - consente a PE15 di essere ricollegato, salvo protezioni termiche.
      */
     if(alimentatore != 0)
     {
         disconnessioneSottotensioneAttiva = 0U;
+        timerFunzionamentoBatteriaAttivo = 0U;
+        tickInizioFunzionamentoBatteria = 0U;
+
+        if(spegnimentoTempoBatteriaAttivo != 0U)
+        {
+            /*
+             * Evita che il lungo intervallo di spegnimento venga
+             * conteggiato nei timer della nuova sessione di carica.
+             */
+            ultimoTickBatteria = tickAttuale;
+            spegnimentoTempoBatteriaAttivo = 0U;
+        }
+    }
+    else
+    {
+        if(timerFunzionamentoBatteriaAttivo == 0U)
+        {
+            tickInizioFunzionamentoBatteria = tickAttuale;
+            timerFunzionamentoBatteriaAttivo = 1U;
+        }
+        else if(spegnimentoTempoBatteriaAttivo == 0U &&
+                (tickAttuale - tickInizioFunzionamentoBatteria) >=
+                    BAT_BACKUP_MAX_TIME_MS)
+        {
+            spegnimentoTempoBatteriaAttivo = 1U;
+
+            snprintf(
+                uart,
+                sizeof(uart),
+                "[BAT] Backup time expired: %lus, disconnecting PE15\r\n",
+                (unsigned long)(BAT_BACKUP_MAX_TIME_MS / 1000UL)
+            );
+
+            HAL_UART_Transmit(
+                &huart1,
+                (u8 *)uart,
+                strlen(uart),
+                300
+            );
+        }
+    }
+
+    /*
+     * Dopo la scadenza si comandano immediatamente spenti carica,
+     * circuito di misura e collegamento batteria. Se il micro resta
+     * temporaneamente alimentato da capacita residue, il latch impedisce
+     * che PE15 venga richiusto prima del ritorno della rete.
+     */
+    if(spegnimentoTempoBatteriaAttivo != 0U)
+    {
+        statoCaricaBatteria = BAT_STATE_NO_SUPPLY;
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        batteriaInCarica = 0U;
+        return 1U;
     }
 
     /*
@@ -2082,6 +2304,10 @@ u8 controllaBatteria(void)
 
         if(temperaturaRapida >= TEMP_SENSOR_MIN_VALID_C &&
            temperaturaRapida <= TEMP_SENSOR_MAX_VALID_C &&
+           temperaturaRapida >= TEMP_MCU_CHARGE_MIN_C &&
+           bloccoTemperaturaBassa == 0U &&
+           disconnessioneTemperaturaBassaAttiva == 0U &&
+           disconnessioneTermicaAttiva == 0U &&
            temperaturaRapida < TEMP_MCU_CHARGE_MAX_C)
         {
             HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
@@ -2272,7 +2498,7 @@ u8 controllaBatteria(void)
         batteriaNonRilevata = 1;
     }
 
-    /* Isteresi del blocco termico del microcontrollore. */
+    /* Isteresi del blocco di carica per temperatura troppo alta. */
     if(temperaturaValida == 0)
     {
         bloccoTemperatura = 1;
@@ -2289,10 +2515,28 @@ u8 controllaBatteria(void)
         bloccoTemperatura = 1;
     }
 
+    /* Isteresi del blocco di carica per temperatura troppo bassa. */
+    if(temperaturaValida == 0)
+    {
+        bloccoTemperaturaBassa = 1U;
+    }
+    else if(bloccoTemperaturaBassa != 0U)
+    {
+        if(temperaturaMCU >= TEMP_MCU_CHARGE_MIN_RESTART_C)
+        {
+            bloccoTemperaturaBassa = 0U;
+        }
+    }
+    else if(temperaturaMCU < TEMP_MCU_CHARGE_MIN_C)
+    {
+        bloccoTemperaturaBassa = 1U;
+    }
+
     /*
      * La protezione termica estrema e indipendente dal blocco della
      * sola carica. Una volta aperto PE15, viene richiesta una discesa
-     * sotto 75 C prima di ricollegare la batteria.
+     * fino a TEMP_MCU_EMERGENCY_RESTART_C prima di ricollegare
+     * la batteria.
      *
      * Con misura di temperatura non valida il latch conserva il proprio
      * stato: una batteria gia scollegata non viene ricollegata senza una
@@ -2313,9 +2557,31 @@ u8 controllaBatteria(void)
         }
     }
 
+    /*
+     * Protezione della temperatura minima di funzionamento. A differenza
+     * del limite minimo di carica, questa apre PE15. Il latch viene
+     * cancellato soltanto dopo una misura valida che conferma il ritorno
+     * a TEMP_MCU_OPERATION_RESTART_C o oltre.
+     */
+    if(temperaturaValida != 0)
+    {
+        if(disconnessioneTemperaturaBassaAttiva != 0U)
+        {
+            if(temperaturaMCU >= TEMP_MCU_OPERATION_RESTART_C)
+            {
+                disconnessioneTemperaturaBassaAttiva = 0U;
+            }
+        }
+        else if(temperaturaMCU < TEMP_MCU_OPERATION_MIN_C)
+        {
+            disconnessioneTemperaturaBassaAttiva = 1U;
+        }
+    }
+
     if(alimentatore != 0 &&
        temperaturaValida != 0 &&
        bloccoTemperatura == 0 &&
+       bloccoTemperaturaBassa == 0 &&
        (batteriaNonRilevata != 0 ||
         (adcValido != 0 &&
          tensioneMisurata_mV < VBAT_MIN_AUTOMATIC_CHARGE_MV)))
@@ -2506,7 +2772,8 @@ u8 controllaBatteria(void)
         dutyPercentuale = 0;
         contatoreWakeup = 0;
     }
-    else if(bloccoTemperatura != 0)
+    else if(bloccoTemperatura != 0 ||
+            bloccoTemperaturaBassa != 0)
     {
         statoCaricaBatteria = BAT_STATE_WAIT_TEMPERATURE;
         comandoCarica = 0;
@@ -2851,13 +3118,17 @@ u8 controllaBatteria(void)
     /* =============================================================
      * 9. DECISIONE UNICA SU PE15
      * =============================================================
-     * PE15 viene aperto dopo una sottotensione confermata sotto 6,0 V
-     * durante il funzionamento senza alimentatore oppure per una
-     * sovratemperatura estrema del microcontrollore.
+     * PE15 viene aperto:
+     * - dopo una sottotensione confermata durante il funzionamento
+     *   senza alimentatore;
+     * - per temperatura MCU eccessivamente alta o bassa;
+     * - alla scadenza del tempo massimo di funzionamento a batteria
+     *   (quest'ultimo caso viene gestito prima della misura).
      *
-     * Il latch mantiene la batteria isolata anche quando, dopo l'apertura,
-     * l'ADC non puo piu leggerla. Al ritorno dell'alimentatore il latch
-     * viene cancellato e PE15 viene richiuso per consentire il WAKEUP.
+     * Il latch di sottotensione mantiene la batteria isolata anche quando,
+     * dopo l'apertura, l'ADC non puo piu leggerla; viene cancellato al
+     * ritorno della rete. I latch termici vengono invece cancellati solo
+     * quando la temperatura rientra nelle rispettive soglie di isteresi.
      */
     collegaBatteria = 1;
 
@@ -2875,6 +3146,11 @@ u8 controllaBatteria(void)
     }
 
     if(disconnessioneTermicaAttiva != 0U)
+    {
+        collegaBatteria = 0;
+    }
+
+    if(disconnessioneTemperaturaBassaAttiva != 0U)
     {
         collegaBatteria = 0;
     }
