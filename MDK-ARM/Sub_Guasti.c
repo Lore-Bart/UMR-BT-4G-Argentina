@@ -107,6 +107,85 @@ extern u8 alimentatore;
 
 extern int netCount;
 
+/*
+ * Coda dedicata all'unico SMS di sovracorrente in attesa. Gli eventi reali
+ * non possono sovrapporsi perche inibitGuasto viene attivato subito dopo il
+ * rilevamento. Il buffer separato rende sicuro l'uso delle stringhe locali
+ * create da exTimerGuasti() e dal comando di test.
+ */
+static u8 smsGuastoRitardato[160];
+static u8 numeroSMSGuastoRitardato[20];
+static u16 lunghezzaSMSGuastoRitardato = 0;
+static u8 lunghezzaNumeroSMSGuastoRitardato = 0;
+static u32 tickProgrammazioneSMSGuasto = 0;
+static volatile u8 smsGuastoRitardatoPending = 0;
+
+static void programmaInvioSMSGuasto(
+	u8 *numero,
+	u16 lunghezzaNumero,
+	u8 *sms,
+	u16 lunghezzaSMS
+){
+	if(allarmiSMSattivi == 0U || numero == 0 || sms == 0){
+		return;
+	}
+
+	if(lunghezzaNumero > (sizeof(numeroSMSGuastoRitardato) - 1U)){
+		lunghezzaNumero = sizeof(numeroSMSGuastoRitardato) - 1U;
+	}
+	if(lunghezzaSMS > (sizeof(smsGuastoRitardato) - 1U)){
+		lunghezzaSMS = sizeof(smsGuastoRitardato) - 1U;
+	}
+	if(lunghezzaNumero == 0U || lunghezzaSMS == 0U){
+		return;
+	}
+
+	if(OVERCURRENT_SMS_DELAY_MS == 0UL){
+		inviaSMS(numero,lunghezzaNumero,sms,lunghezzaSMS);
+		return;
+	}
+
+	memset(numeroSMSGuastoRitardato,0,sizeof(numeroSMSGuastoRitardato));
+	memset(smsGuastoRitardato,0,sizeof(smsGuastoRitardato));
+	copiaArray(
+		&numeroSMSGuastoRitardato[0],
+		numero,
+		lunghezzaNumero
+	);
+	copiaArray(&smsGuastoRitardato[0],sms,lunghezzaSMS);
+	lunghezzaNumeroSMSGuastoRitardato = (u8)lunghezzaNumero;
+	lunghezzaSMSGuastoRitardato = lunghezzaSMS;
+	tickProgrammazioneSMSGuasto = HAL_GetTick();
+	smsGuastoRitardatoPending = 1U;
+}
+
+void gestisciInvioSMSGuastoRitardato(void){
+	if(smsGuastoRitardatoPending == 0U){
+		return;
+	}
+
+	if((u32)(HAL_GetTick() - tickProgrammazioneSMSGuasto) <
+	   OVERCURRENT_SMS_DELAY_MS){
+		return;
+	}
+
+	/*
+	 * Se gli allarmi vengono disabilitati durante i cinque secondi di
+	 * attesa, il messaggio pendente viene scartato.
+	 */
+	smsGuastoRitardatoPending = 0U;
+	if(allarmiSMSattivi == 0U){
+		return;
+	}
+
+	inviaSMS(
+		&numeroSMSGuastoRitardato[0],
+		lunghezzaNumeroSMSGuastoRitardato,
+		&smsGuastoRitardato[0],
+		lunghezzaSMSGuastoRitardato
+	);
+}
+
 void salvaGuastoFake(void){
 
 	u8 array[16] = {0,0,0,0,0,5,0,5,0,5,0,5,0,5,0,5};
@@ -184,6 +263,12 @@ void generaEventoSovracorrenteTest(void){
 	saveArrayFram(&arrayEvento[0],&addressFram[0],16);
 	writeNFC(&arrayEvento[0],16,&offset[0]);
 
+	/*
+	 * Il database viene accodato prima di preparare l'SMS: lo scheduler
+	 * principale puo quindi effettuare subito il primo tentativo.
+	 */
+	aggiungiGuastoDB(1,&correntiTest[0]);
+
 	sprintf(
 		(char*)sms,
 		"TEST - Alarm!\ndetected overcurrent!\nUMR: ----------------\n"
@@ -193,16 +278,12 @@ void generaEventoSovracorrenteTest(void){
 		longitudineD
 	);
 	copiaArray(&sms[41],&identificativo[0],16);
-	if(allarmiSMSattivi != 0U){
-		inviaSMS(
-			&numeroAllarmi[0],
-			strlen((char*)numeroAllarmi),
-			&sms[0],
-			strlen((char*)sms)
-		);
-	}
-
-	aggiungiGuastoDB(1,&correntiTest[0]);
+	programmaInvioSMSGuasto(
+		&numeroAllarmi[0],
+		(u16)strlen((char*)numeroAllarmi),
+		&sms[0],
+		(u16)strlen((char*)sms)
+	);
 	inviaDebug((u8*)"[TEST] evento sovracorrente fittizio accodato\n");
 }
 
@@ -311,15 +392,20 @@ void exTimerGuasti(void){
 			writeNFC(&arrayEvento[0],16,&offset[0]);
 			//__enable_irq();
 		
-		//invio SMS
-		sprintf(sms,"Alarm!\ndetected overcurrent!\nUMR: ----------------\ncurrent maximum value: %d A\nlat: %.3f  long: %.3f",maxValue,latitudineD,longitudineD);
-		copiaArray(&sms[34],&identificativo[0],16);			
-		if(allarmiSMSattivi != 0){
-			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
-		}
-			
-		//aggiungiDB
+		/*
+		 * Accodo immediatamente il database. L'SMS viene programmato solo
+		 * dopo, con il ritardo definito da OVERCURRENT_SMS_DELAY_MS.
+		 */
 		aggiungiGuastoDB(1,&correnteGuasto[0]);
+
+		sprintf(sms,"Alarm!\ndetected overcurrent!\nUMR: ----------------\ncurrent maximum value: %d A\nlat: %.3f  long: %.3f",maxValue,latitudineD,longitudineD);
+		copiaArray(&sms[34],&identificativo[0],16);
+		programmaInvioSMSGuasto(
+			&numeroAllarmi[0],
+			(u16)strlen((char*)numeroAllarmi),
+			&sms[0],
+			(u16)strlen((char*)sms)
+		);
 			
 		//disattivo il Timer e attivo inibizione
 		inibitGuasto =
@@ -632,5 +718,4 @@ void ultimoGuasto(u8 *outBuf){
 		}
 	}
 }
-
 

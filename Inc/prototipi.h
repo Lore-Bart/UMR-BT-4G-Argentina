@@ -61,6 +61,16 @@
 #define BAT_CHECK_AC_INTERVAL_SEC          15U
 #define BAT_CHECK_BACKUP_INTERVAL_SEC      120U
 
+/*
+ * Ritardo fra l'accodamento immediato dell'evento di sovracorrente al
+ * database e l'accodamento del relativo SMS.
+ *
+ * Il valore e espresso in millisecondi. Impostando 0 l'SMS viene accodato
+ * immediatamente dopo la richiesta database. Per mantenere affidabile il
+ * confronto con HAL_GetTick(), usare valori inferiori a 2^31 ms.
+ */
+#define OVERCURRENT_SMS_DELAY_MS           5000UL
+
 #define GUASTO_INIBIZIONE_FORMAT         0xFFFFFFFFUL
 
 typedef uint8_t u8;
@@ -252,6 +262,7 @@ u8 writeNFC32Checked(uint8_t *inBuf, uint8_t size, uint8_t *offset);
 void killRF(void);
 void salvaGuastoFake(void);
 void generaEventoSovracorrenteTest(void);
+void gestisciInvioSMSGuastoRitardato(void);
 u32 isDST(u32 A);
 void salvaNeutroFake(void);
 void resetWD(void);

@@ -492,6 +492,13 @@ int mymain(void){
 		 * - gestisce retry e conferma su +HTTPACTION.
 		 */
 		processDatabaseRequests();
+
+		/*
+		 * Gli SMS di sovracorrente vengono resi disponibili soltanto dopo
+		 * che lo scheduler database ha avuto la possibilita di avviare il
+		 * primo tentativo di salvataggio.
+		 */
+		gestisciInvioSMSGuastoRitardato();
 		
 		if(timerModuloESC == 0){
 			timerModuloESC = timerModuloESCinit;
@@ -679,8 +686,10 @@ int mymain(void){
 		
 		if(checkTensioni == 1){
 			checkTensioni = 0;
-			checkUnderVoltage();
-			checkOverVoltage();
+			if(HAL_GPIO_ReadPin(GPIOC,GPIO_PIN_3)){
+				checkUnderVoltage();
+				checkOverVoltage();
+			}
 		}
 		
 		if(attivazioneBatteriaCompletata != 0U &&
