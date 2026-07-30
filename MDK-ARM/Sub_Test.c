@@ -445,7 +445,7 @@ void eseguiComandoTest(uint8_t *messaggio){
 				break;
 			
 			case 0x54: //salva Meas
-				preparaLoad();
+				//preparaLoad();
 				preparaMeas();
 				
 				break;
@@ -656,7 +656,7 @@ void eseguiComandoTest(uint8_t *messaggio){
 				break;		
 			
 			case 0xa0:
-				simulaGuasto = 1;
+				generaEventoSovracorrenteTest();
 				HAL_UART_Transmit(&huart1,&OK[0],4,100);
 				break;
 			

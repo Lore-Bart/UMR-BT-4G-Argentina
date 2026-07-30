@@ -50,6 +50,7 @@ extern u8 risultatoTestMemorie[4];
 //salvataggio attivato
 extern u8 salvataggioLoad;
 extern u8 salvataggioMeas;
+extern u8 alimentatore;
 
 //identificativo
 u8 identificativo[16] = "UMR             ";
@@ -418,6 +419,12 @@ int mymain(void){
 			RTCpollingFlag = 0;
 			RTCpolling();
 		}
+
+		/*
+		 * Ritardo non bloccante dell'ingresso in low power dopo la
+		 * mancanza rete.
+		 */
+		gestisciIngressoLowPower();
 		
 		//sovracorrenti
 		tick = HAL_GetTick();
@@ -594,14 +601,20 @@ int mymain(void){
 		
 		
 		//salvataggio da effettuate
-		if(salvataggioLoad == 1){
+		if(salvataggioLoad == 1 && alimentatore != 0){
 			salvataggioLoad = 0;
 			salvaLoad();			
 			}
-		if(salvataggioMeas == 1){
+		else if(alimentatore == 0){
+			salvataggioLoad = 0;
+			}
+		if(salvataggioMeas == 1 && alimentatore != 0){
 			salvataggioMeas = 0;
 			salvaMeas();
-			}		
+			}
+		else if(alimentatore == 0){
+			salvataggioMeas = 0;
+			}
 		if(avviaTestMemorie == 1){
 			testMemorie();
 		}

@@ -227,6 +227,8 @@ extern u8 smsAttivi;
 u8 controllaRete = 0;
 u8 controlloFurto = 0;
 u8 controlloBatteriaFlag = 0;
+static u16 secondiControlloBatteriaBackup = 0;
+static u8 statoAlimentatoreControlloBatteria = 1;
 
 extern u8 eventoNeutro;
 extern u8 eventiNeutro;
@@ -242,6 +244,8 @@ u8 spegniLed = 0;
 
 u8 alimentatore = 1;
 u8 lowpower = 0;
+static volatile u8 ingressoLowPowerInAttesa = 0;
+static volatile u32 tickInizioAttesaLowPower = 0;
 
 extern u8 inizializzaAntifurto;
 long timerBT = 0;
@@ -265,6 +269,7 @@ extern u8 attivaInternetFlag;
 
 extern u8 univoco[5];
 extern u8 salvataggioLoad;
+extern u8 salvataggioMeas;
 extern u8 userAPN[30];
 extern u8 pwAPN[30];
 extern u8 retePrivata;
@@ -404,18 +409,31 @@ void RTC_WKUP_IRQHandler(void)
 		}
 	}
 	
-	//modalit low power
-	if(avvioConcluso == 1 && alimentatore == 0 && lowpower == 0){
-		lowpower = 1;
-		////disabilito solo il secondo ADE
-		//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_5,GPIO_PIN_SET);  //ADE1
-		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);  //ADE2
-		
-		////disabilito i rivelatori di picco
-		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_10,GPIO_PIN_RESET);
-		
+	/*
+	 * La mancanza rete sospende immediatamente i profili, anche durante
+	 * l'attesa che precede la modalita low power.
+	 */
+	if(alimentatore == 0){
+		salvataggioLoad = 0;
+		salvataggioMeas = 0;
+		clearDatabaseProfileRequests();
 	}
-	else if(avvioConcluso == 1 && alimentatore != 0 && lowpower != 0){
+
+	/*
+	 * Arma soltanto il passaggio alla low power. Lo spegnimento dei circuiti
+	 * viene eseguito fuori dall'interrupt da gestisciIngressoLowPower().
+	 */
+	if(avvioConcluso == 1 && alimentatore == 0 && lowpower == 0){
+		if(ingressoLowPowerInAttesa == 0U){
+			tickInizioAttesaLowPower = HAL_GetTick();
+			ingressoLowPowerInAttesa = 1U;
+		}
+	}
+	else if(alimentatore != 0){
+		ingressoLowPowerInAttesa = 0U;
+	}
+
+	if(avvioConcluso == 1 && alimentatore != 0 && lowpower != 0){
 		lowpower = 0;
 		
 		////abilito il secondo ADE
@@ -522,6 +540,38 @@ void RTC_WKUP_IRQHandler(void)
 		
 }
 
+/*
+ * Gestione non bloccante dell'ingresso in low power.
+ * Viene richiamata continuamente dal main loop: il ritorno della rete
+ * annulla l'attesa prima che i circuiti vengano disabilitati.
+ */
+void gestisciIngressoLowPower(void){
+	u32 ritardoMs = (u32)LOWPOWER_ENTRY_DELAY_SEC * 1000UL;
+
+	if(ingressoLowPowerInAttesa == 0U){
+		return;
+	}
+
+	if(avvioConcluso != 1 || alimentatore != 0 || lowpower != 0){
+		ingressoLowPowerInAttesa = 0U;
+		return;
+	}
+
+	if((u32)(HAL_GetTick() - tickInizioAttesaLowPower) < ritardoMs){
+		return;
+	}
+
+	ingressoLowPowerInAttesa = 0U;
+	lowpower = 1U;
+
+	////disabilito solo il secondo ADE
+	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_5,GPIO_PIN_SET);  //ADE1
+	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);  //ADE2
+
+	////disabilito i rivelatori di picco
+	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_10,GPIO_PIN_RESET);
+}
+
 
 void RTCpolling(void){
 	
@@ -580,13 +630,17 @@ void RTCpolling(void){
 					elabMisure3();
 					calcolatutto();
 					calcolatutto3();
-					checkTensioni = 1;
+					//checkTensioni = 1;
 					produzioneFun();					
 				}
 			}
 			else{
 				leggiTensioni();
 				azzeraMisurandi();
+				//checkTensioni = 1;
+			}
+			
+			if(alimentatore != 0){
 				checkTensioni = 1;
 			}
 		
@@ -598,11 +652,38 @@ void RTCpolling(void){
 				inibizione--;
 			}*/
 		
-			//controlloBatteria
-			if(currentTime.Seconds == 0 || currentTime.Seconds == 30 || currentTime.Seconds == 15 || currentTime.Seconds == 45){
-				controlloBatteriaFlag = 1;
-				addressFram[0] = 2; addressFram[1] = 231;
-				saveU16fram(timeCarica,&addressFram[0]);
+			/*
+			 * Con rete presente manteniamo il controllo ogni 15 secondi.
+			 * A batteria usiamo invece un contatore dedicato di 120 secondi:
+			 * non possiamo basarci soltanto sui secondi dell'RTC, che
+			 * ripartono da zero ogni minuto.
+			 */
+			if(alimentatore != statoAlimentatoreControlloBatteria){
+				statoAlimentatoreControlloBatteria = alimentatore;
+				secondiControlloBatteriaBackup = 0U;
+			}
+
+			if(alimentatore != 0){
+				secondiControlloBatteriaBackup = 0U;
+				if((currentTime.Seconds % BAT_CHECK_AC_INTERVAL_SEC) == 0U){
+					controlloBatteriaFlag = 1;
+					addressFram[0] = 2; addressFram[1] = 231;
+					saveU16fram(timeCarica,&addressFram[0]);
+				}
+			}
+			else{
+				if(secondiControlloBatteriaBackup <
+				   BAT_CHECK_BACKUP_INTERVAL_SEC){
+					secondiControlloBatteriaBackup++;
+				}
+
+				if(secondiControlloBatteriaBackup >=
+				   BAT_CHECK_BACKUP_INTERVAL_SEC){
+					secondiControlloBatteriaBackup = 0U;
+					controlloBatteriaFlag = 1;
+					addressFram[0] = 2; addressFram[1] = 231;
+					saveU16fram(timeCarica,&addressFram[0]);
+				}
 			}
 		  
 

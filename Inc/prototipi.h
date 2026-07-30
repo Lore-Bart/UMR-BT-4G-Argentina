@@ -37,6 +37,30 @@
 #define BAT_BACKUP_TIME_DEFAULT_MIN       5U
 #define BAT_BACKUP_TIME_MAX_MIN           60U
 
+/*
+ * Ritardo fisso fra il riconoscimento della mancanza rete e l'ingresso
+ * effettivo in modalita low power.
+ *
+ * Il valore e espresso in secondi e puo essere modificato soltanto
+ * ricompilando il firmware. Durante questo intervallo gli ADE e i rivelatori
+ * di picco restano attivi, ma i profili load e meas sono gia sospesi perche
+ * alimentatore vale 0.
+ *
+ * 0 mantiene il comportamento immediato precedente.
+ */
+#define LOWPOWER_ENTRY_DELAY_SEC           3U
+
+/*
+ * Intervalli fra i controlli periodici della tensione batteria:
+ * - con alimentatore presente resta il controllo ogni 15 secondi;
+ * - con alimentatore assente il controllo viene diradato a 120 secondi
+ *   per ridurre il consumo introdotto dal circuito di misura.
+ *
+ * I valori sono espressi in secondi e devono essere maggiori di zero.
+ */
+#define BAT_CHECK_AC_INTERVAL_SEC          15U
+#define BAT_CHECK_BACKUP_INTERVAL_SEC      120U
+
 #define GUASTO_INIBIZIONE_FORMAT         0xFFFFFFFFUL
 
 typedef uint8_t u8;
@@ -227,6 +251,7 @@ void writeNFC32(uint8_t *inBuf, uint8_t size, uint8_t *offset);
 u8 writeNFC32Checked(uint8_t *inBuf, uint8_t size, uint8_t *offset);
 void killRF(void);
 void salvaGuastoFake(void);
+void generaEventoSovracorrenteTest(void);
 u32 isDST(u32 A);
 void salvaNeutroFake(void);
 void resetWD(void);
@@ -263,7 +288,9 @@ void inviaSMSpoll(u8 coda);
 void esportaParametriInternet(u8* messaggio);
 void connettiInternet(void);
 void clearDatabaseRequests(void);
+void clearDatabaseProfileRequests(void);
 void processDatabaseRequests(void);
+void gestisciIngressoLowPower(void);
 u8 databaseTxIsBusy(void);
 void databaseHttpActionResult(u8 *messaggio);
 void databaseHttpError(void);

@@ -3387,7 +3387,8 @@ u8 controllaBatteria(void)
     /* =============================================================
      * 11. DIAGNOSTICA SERIALE
      * ============================================================= */
-    if(logBatteriaInizializzato == 0U ||
+    if(alimentatore == 0U ||
+       logBatteriaInizializzato == 0U ||
        (tickAttuale - ultimoTickLogBatteria) >= BAT_LOG_INTERVAL_MS)
     {
         ultimoTickLogBatteria = tickAttuale;

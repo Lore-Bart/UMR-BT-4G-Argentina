@@ -145,6 +145,67 @@ void salvaGuastoFake(void){
 
 }
 
+/*
+ * Genera un evento di sovracorrente esclusivamente per il collaudo.
+ * Il test percorre le vie di salvataggio FRAM/NFC, SMS e database, ma non
+ * passa da exTimerGuasti(): non modifica quindi inibitGuasto, simulaGuasto,
+ * i timer di rilevazione o le soglie.
+ */
+void generaEventoSovracorrenteTest(void){
+	u32 correntiTest[6] = {1000U,1001U,1002U,1003U,1004U,1005U};
+	u8 arrayEvento[16];
+	u8 offset[2];
+	u8 addressFram[2] = {1,18};
+	u8 sms[220];
+	u16 beforeOffset;
+	u16 beforeFram;
+
+	u322array(&arrayEvento[0],myTimeVar);
+	u162array(&arrayEvento[4],(u16)correntiTest[0]);
+	u162array(&arrayEvento[6],(u16)correntiTest[1]);
+	u162array(&arrayEvento[8],(u16)correntiTest[2]);
+	u162array(&arrayEvento[10],(u16)correntiTest[3]);
+	u162array(&arrayEvento[12],(u16)correntiTest[4]);
+	u162array(&arrayEvento[14],(u16)correntiTest[5]);
+
+	beforeOffset = 4096U + 16U * guasti;
+	u162array(&offset[0],beforeOffset);
+	beforeFram = 6144U + 16U * guasti;
+
+	if(guasti < 99U){
+		guasti++;
+	}
+	else{
+		guasti = 0U;
+	}
+
+	saveArrayFram(&guasti,&addressFram[0],1);
+	u162array(&addressFram[0],beforeFram);
+	saveArrayFram(&arrayEvento[0],&addressFram[0],16);
+	writeNFC(&arrayEvento[0],16,&offset[0]);
+
+	sprintf(
+		(char*)sms,
+		"TEST - Alarm!\ndetected overcurrent!\nUMR: ----------------\n"
+		"current maximum value: %lu A\nlat: %.3f  long: %.3f",
+		(unsigned long)correntiTest[5],
+		latitudineD,
+		longitudineD
+	);
+	copiaArray(&sms[41],&identificativo[0],16);
+	if(allarmiSMSattivi != 0U){
+		inviaSMS(
+			&numeroAllarmi[0],
+			strlen((char*)numeroAllarmi),
+			&sms[0],
+			strlen((char*)sms)
+		);
+	}
+
+	aggiungiGuastoDB(1,&correntiTest[0]);
+	inviaDebug((u8*)"[TEST] evento sovracorrente fittizio accodato\n");
+}
+
 void acquisciCorrenti(void){
 	
 }
@@ -571,7 +632,5 @@ void ultimoGuasto(u8 *outBuf){
 		}
 	}
 }
-
-
 
 

@@ -59,6 +59,7 @@ extern long temperatura;
 extern int tensioneBint;
 extern u8 batteriaInCarica;
 extern u8 batteryLevel;
+extern u8 alimentatore;
 
 //variabili misurandi
 extern u32 V[3]; //tensioni
@@ -135,6 +136,22 @@ void clearDatabaseRequests(void){
 	databaseTxType = DB_TX_NONE;
 	databaseTxRetry = 0;
 	databaseNextRetryTick = 0;
+}
+
+/*
+ * Scarta soltanto i profili periodici non ancora trasmessi. Le richieste
+ * relative ad allarmi ed eventi restano in coda.
+ */
+void clearDatabaseProfileRequests(void){
+	aggiungiMeasProfileDBflag = 0;
+	aggiungiLoadProfileDBflag = 0;
+
+	if(databaseTxBusy == 0 &&
+	   (databaseTxType == DB_TX_MEAS || databaseTxType == DB_TX_LOAD)){
+		databaseTxType = DB_TX_NONE;
+		databaseTxRetry = 0;
+		databaseNextRetryTick = 0;
+	}
 }
 
 static const char* databaseTxName(u8 type)
@@ -353,8 +370,10 @@ void processDatabaseRequests(void)
 	if(aggiungiNeutroEndDBflag == 1){ aggiungiNeutroEndDB(0,mysqlPendingNeutralEndTimeMax,&mysqlPendingNeutralEndMax[0],&mysqlPendingNeutralEndEnd[0]); return; }
 	if(aggiungiRebootDBflag == 1){ aggiungiRebootDB(0); return; }
 	if(aggiungiDebugDBflag == 1){ aggiungiDebugDB(0); return; }
-	if(aggiungiMeasProfileDBflag == 1){ aggiungiMeasProfileDB(0); return; }
-	if(aggiungiLoadProfileDBflag == 1){ aggiungiLoadProfileDB(0); return; }
+	if(alimentatore != 0){
+		if(aggiungiMeasProfileDBflag == 1){ aggiungiMeasProfileDB(0); return; }
+		if(aggiungiLoadProfileDBflag == 1){ aggiungiLoadProfileDB(0); return; }
+	}
 }
 
 
@@ -406,6 +425,11 @@ void aggiungiMeasProfileDB(u8 passaggio){
 	u8 stringaMeasDB[900];
 	
 	int i = 0;
+
+	if(alimentatore == 0){
+		aggiungiMeasProfileDBflag = 0;
+		return;
+	}
 	
 	if(passaggio != 0){
 		aggiungiMeasProfileDBflag = 1;
@@ -451,6 +475,11 @@ void aggiungiLoadProfileDB(u8 passaggio){
 	u8 stringaLoadDB[900];
 	
 	int i = 0;
+
+	if(alimentatore == 0){
+		aggiungiLoadProfileDBflag = 0;
+		return;
+	}
 	
 	if(passaggio != 0){
 		aggiungiLoadProfileDBflag = 1;

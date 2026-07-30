@@ -92,6 +92,7 @@ u16 delayFake = 0;
 u8 overSavings = 0;
 
 extern u8 debugDB;
+extern u8 alimentatore;
 
 extern u8 aggiungiMeasProfileDBflag;
 extern u8 aggiungiLoadProfileDBflag;
@@ -112,7 +113,7 @@ static u8 timestampProfiloValido(u32 timestamp){
 void preparaLoad(void){
 	long difference = 0;
 
-	if(cancellaLoad != 0){
+	if(alimentatore == 0 || cancellaLoad != 0){
 		return;
 	}
 	
@@ -162,6 +163,10 @@ void salvaLoad(void){
 	long difference;
 	u8 uart[100];
 	u8 addressFlash[3] = {0,0,0};
+
+	if(alimentatore == 0){
+		return;
+	}
 	
 	
 	time = saveInterval(LoadActive);
@@ -303,6 +308,10 @@ void inviaPaginaFlash(void){
 
 void preparaMeasDB(void){
 
+	if(alimentatore == 0){
+		return;
+	}
+
 	//preparo le variabili meas
 	
 	if(I1[0] > 0){
@@ -429,7 +438,7 @@ void preparaMeasDB(void){
 
 void preparaMeas(void){
 
-	if(cancellaMeas != 0){
+	if(alimentatore == 0 || cancellaMeas != 0){
 		return;
 	}
 
@@ -607,6 +616,10 @@ void salvaMeas(void){
 	uint32_t localIndice = 0;
 	uint8_t parity;
 	uint8_t addressFram[2] = {0,15};
+
+	if(alimentatore == 0){
+		return;
+	}
 	
 	
 	//aggiungo +1 all'indice globale e lo salvo in FRAM
@@ -684,7 +697,7 @@ void salvataggio(void){
 	
 	u8 salvataggioNormale = 0;
 
-	if(cancellaLoad != 0 || cancellaMeas != 0){
+	if(alimentatore == 0 || cancellaLoad != 0 || cancellaMeas != 0){
 		return;
 	}
 	
@@ -1777,4 +1790,3 @@ void formattaMeas(void){
 	inibizione = 0;
 	
 }
-
