@@ -90,6 +90,50 @@ extern u8 disconnessione;
 u8 uartPack[500];
 extern u16 NpackRecGSM;
 extern u8 updateGSMatt;
+extern u8 cambioNomeBT;
+extern u8 identificativo[16];
+
+/*
+ * Cambio nome RN4678
+ *
+ * Il manuale prescrive di attendere la risposta di ogni comando prima di
+ * inviare il successivo. La procedura e quindi gestita come macchina a stati
+ * non bloccante e le risposte del modulo vengono intercettate prima che
+ * possano essere interpretate come comandi provenienti dall'app.
+ */
+#define BT_NAME_RESPONSE_TIMEOUT_MS  2000UL
+#define BT_NAME_REBOOT_TIMEOUT_MS    6000UL
+#define BT_NAME_RECOVERY_TIMEOUT_MS  1000UL
+#define BT_NAME_MAX_ATTEMPTS         3U
+#define BT_NAME_RX_BUFFER_SIZE       128U
+
+#define BT_NAME_EVENT_NONE           0x00U
+#define BT_NAME_EVENT_CMD            0x01U
+#define BT_NAME_EVENT_AOK            0x02U
+#define BT_NAME_EVENT_ERR            0x04U
+#define BT_NAME_EVENT_VERIFIED       0x08U
+#define BT_NAME_EVENT_REBOOT         0x10U
+
+typedef enum
+{
+	BT_NAME_STATE_IDLE = 0,
+	BT_NAME_STATE_WAIT_CMD,
+	BT_NAME_STATE_WAIT_SN_AOK,
+	BT_NAME_STATE_WAIT_VERIFY,
+	BT_NAME_STATE_WAIT_REBOOT,
+	BT_NAME_STATE_WAIT_RECOVERY_CMD
+} BtNameState_t;
+
+static volatile BtNameState_t btNameState = BT_NAME_STATE_IDLE;
+static volatile u8 btNameEvents = BT_NAME_EVENT_NONE;
+static volatile u16 btNameRxLength = 0U;
+static u8 btNameRxBuffer[BT_NAME_RX_BUFFER_SIZE];
+static u8 btNameRequested[17];
+static u8 btNameRequestedLength = 0U;
+static u8 btNameAttempt = 0U;
+static u32 btNameDeadline = 0UL;
+
+static u8 acquisisciRispostaCambioNomeBT(const u8 *messaggio, u32 lunghezza);
 
 void USART2_IRQHandler(void)
 {
@@ -111,6 +155,15 @@ void USART2_IRQHandler(void)
 		/* Fuori dall'aggiornamento il payload e' testo, quindi si puo' usare strlen. */
 		HAL_UART_Transmit(&huart1,messaggioRecBT,strlen((char*)messaggioRecBT),100);
 		HAL_UART_Transmit(&huart1,(u8*)"\n",1,100);
+
+		/*
+		 * Durante la configurazione del nome, CMD/AOK/ERR e REBOOT sono
+		 * risposte locali del RN4678, non pacchetti inviati dall'app.
+		 */
+		if(acquisisciRispostaCambioNomeBT(&messaggioRecBT[0],sizeBT) != 0U){
+			__HAL_UART_CLEAR_IDLEFLAG(&huart2);
+			return;
+		}
 		
 		if(comparaStringhe(&messaggioRecBT[0],(u8*)"%CONNECT",8) && strlen((char*)messaggioRecBT) > 25){
 			eseguiComandoBT(&messaggioRecBT[35]);
@@ -398,6 +451,356 @@ int RicMsg(uint8_t* BuffIn, uint8_t* BuffOut, int pos, int oldpos, int sizeArray
 
     BuffOut[i] = '\0';   // rende BuffOut una stringa C valida
     return i;
+}
+
+static u8 btNameIsAlphanumeric(u8 carattere)
+{
+	if(carattere >= (u8)'0' && carattere <= (u8)'9') return 1U;
+	if(carattere >= (u8)'A' && carattere <= (u8)'Z') return 1U;
+	if(carattere >= (u8)'a' && carattere <= (u8)'z') return 1U;
+	return 0U;
+}
+
+/*
+ * Converte l'identificativo interno, lungo sempre 16 byte e riempito con
+ * spazi, nel parametro SN ammesso dal RN4678: da 1 a 16 caratteri
+ * alfanumerici, senza gli spazi di riempimento finali.
+ */
+static u8 preparaNomeRN4678(void)
+{
+	int ultimo = 15;
+	int i;
+
+	while(ultimo >= 0 &&
+	      (identificativo[ultimo] == 0U || identificativo[ultimo] == (u8)' ')){
+		ultimo--;
+	}
+
+	if(ultimo < 0){
+		return 0U;
+	}
+
+	btNameRequestedLength = (u8)(ultimo + 1);
+	for(i = 0; i <= ultimo; i++){
+		if(btNameIsAlphanumeric(identificativo[i]) == 0U){
+			return 0U;
+		}
+		btNameRequested[i] = identificativo[i];
+	}
+	btNameRequested[btNameRequestedLength] = 0U;
+	return 1U;
+}
+
+static u8 btNameBufferContains(const u8 *buffer, u16 bufferLength, const u8 *token)
+{
+	u16 tokenLength;
+	u16 i;
+
+	tokenLength = (u16)strlen((const char*)token);
+	if(tokenLength == 0U || bufferLength < tokenLength){
+		return 0U;
+	}
+
+	for(i = 0U; i <= (u16)(bufferLength - tokenLength); i++){
+		if(memcmp(&buffer[i],token,tokenLength) == 0){
+			return 1U;
+		}
+	}
+	return 0U;
+}
+
+/*
+ * Azzera in modo atomico l'accumulatore RX e pubblica il nuovo stato prima
+ * dell'invio del comando. In questo modo una risposta molto rapida non puo
+ * essere persa o attribuita allo stato precedente.
+ */
+static void preparaAttesaNomeBT(BtNameState_t nuovoStato, u32 timeoutMs)
+{
+	u32 primask;
+
+	primask = __get_PRIMASK();
+	__disable_irq();
+	btNameRxLength = 0U;
+	btNameRxBuffer[0] = 0U;
+	btNameEvents = BT_NAME_EVENT_NONE;
+	btNameState = nuovoStato;
+	if(primask == 0U){
+		__enable_irq();
+	}
+
+	btNameDeadline = HAL_GetTick() + timeoutMs;
+}
+
+static void inviaIngressoCommandModeBT(void)
+{
+	preparaAttesaNomeBT(BT_NAME_STATE_WAIT_CMD,BT_NAME_RESPONSE_TIMEOUT_MS);
+	HAL_UART_Transmit(&huart2,(u8*)"$$$",3U,100U);
+}
+
+static void inviaComandoNomeBT(void)
+{
+	u8 comando[21];
+	u8 lunghezza;
+
+	comando[0] = (u8)'S';
+	comando[1] = (u8)'N';
+	comando[2] = (u8)',';
+	memcpy(&comando[3],&btNameRequested[0],btNameRequestedLength);
+	lunghezza = (u8)(3U + btNameRequestedLength);
+	comando[lunghezza] = (u8)'\r';
+	lunghezza++;
+
+	preparaAttesaNomeBT(BT_NAME_STATE_WAIT_SN_AOK,BT_NAME_RESPONSE_TIMEOUT_MS);
+	HAL_UART_Transmit(&huart2,&comando[0],lunghezza,100U);
+}
+
+static void inviaVerificaNomeBT(void)
+{
+	/*
+	 * G<char> legge il valore memorizzato dal relativo comando Set:
+	 * GN restituisce quindi il nome salvato da SN.
+	 */
+	preparaAttesaNomeBT(BT_NAME_STATE_WAIT_VERIFY,BT_NAME_RESPONSE_TIMEOUT_MS);
+	HAL_UART_Transmit(&huart2,(u8*)"GN\r",3U,100U);
+}
+
+static void inviaRiavvioBT(void)
+{
+	/*
+	 * SN modifica la NVM ma diventa effettivo soltanto dopo R,1, come
+	 * specificato dal manuale RN4678.
+	 */
+	preparaAttesaNomeBT(BT_NAME_STATE_WAIT_REBOOT,BT_NAME_REBOOT_TIMEOUT_MS);
+	HAL_UART_Transmit(&huart2,(u8*)"R,1\r",4U,100U);
+}
+
+static void terminaCambioNomeBT(u8 esitoPositivo)
+{
+	if(esitoPositivo != 0U){
+		inviaDebug((u8*)"[BT-NAME] nome verificato e modulo riavviato\n");
+	}
+	else{
+		/*
+		 * Uscita best-effort dal Command mode. Se il modulo fosse gia in
+		 * Data mode e disconnesso, la stringa verrebbe semplicemente ignorata.
+		 */
+		HAL_UART_Transmit(&huart2,(u8*)"---\r",4U,100U);
+		inviaDebug((u8*)"[BT-NAME] cambio nome fallito dopo 3 tentativi\n");
+	}
+
+	btNameState = BT_NAME_STATE_IDLE;
+	btNameEvents = BT_NAME_EVENT_NONE;
+	btNameRxLength = 0U;
+	btNameAttempt = 0U;
+	cambioNomeBT = 0U;
+}
+
+static void recuperaCambioNomeBT(void)
+{
+	u8 escape = 0x1BU;
+	u8 uart[100];
+
+	if(btNameAttempt >= BT_NAME_MAX_ATTEMPTS){
+		terminaCambioNomeBT(0U);
+		return;
+	}
+
+	btNameAttempt++;
+	sprintf(
+		(char*)uart,
+		"[BT-NAME] nuovo tentativo %u/%u\n",
+		(unsigned int)btNameAttempt,
+		(unsigned int)BT_NAME_MAX_ATTEMPTS
+	);
+	inviaDebug(uart);
+
+	/*
+	 * Se siamo ancora in Command mode, ESC scarta eventuali caratteri
+	 * incompleti e il modulo risponde con un nuovo prompt CMD>. Se invece
+	 * siamo in Data mode non arrivera risposta e il timeout ritentera $$$.
+	 */
+	preparaAttesaNomeBT(
+		BT_NAME_STATE_WAIT_RECOVERY_CMD,
+		BT_NAME_RECOVERY_TIMEOUT_MS
+	);
+	HAL_UART_Transmit(&huart2,&escape,1U,100U);
+}
+
+/*
+ * Chiamata dall'ISR USART2. Accumula anche risposte frammentate, ma non
+ * effettua trasmissioni, ritardi o log in interrupt.
+ */
+static u8 acquisisciRispostaCambioNomeBT(const u8 *messaggio, u32 lunghezza)
+{
+	u32 i;
+	u16 spazio;
+
+	if(btNameState == BT_NAME_STATE_IDLE){
+		return 0U;
+	}
+
+	if(lunghezza > 0U){
+		spazio = (u16)(BT_NAME_RX_BUFFER_SIZE - 1U - btNameRxLength);
+		if(lunghezza > spazio){
+			lunghezza = spazio;
+		}
+
+		for(i = 0U; i < lunghezza; i++){
+			btNameRxBuffer[btNameRxLength] = messaggio[i];
+			btNameRxLength++;
+		}
+		btNameRxBuffer[btNameRxLength] = 0U;
+	}
+
+	if(btNameBufferContains(
+		   &btNameRxBuffer[0],
+		   btNameRxLength,
+		   (const u8*)"ERR") != 0U){
+		btNameEvents |= BT_NAME_EVENT_ERR;
+	}
+
+	switch(btNameState){
+		case BT_NAME_STATE_WAIT_CMD:
+		case BT_NAME_STATE_WAIT_RECOVERY_CMD:
+			if(btNameBufferContains(
+				   &btNameRxBuffer[0],
+				   btNameRxLength,
+				   (const u8*)"CMD") != 0U){
+				btNameEvents |= BT_NAME_EVENT_CMD;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_SN_AOK:
+			if(btNameBufferContains(
+				   &btNameRxBuffer[0],
+				   btNameRxLength,
+				   (const u8*)"AOK") != 0U){
+				btNameEvents |= BT_NAME_EVENT_AOK;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_VERIFY:
+			if(btNameBufferContains(
+				   &btNameRxBuffer[0],
+				   btNameRxLength,
+				   &btNameRequested[0]) != 0U){
+				btNameEvents |= BT_NAME_EVENT_VERIFIED;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_REBOOT:
+			if(btNameBufferContains(
+				   &btNameRxBuffer[0],
+				   btNameRxLength,
+				   (const u8*)"REBOOT") != 0U){
+				btNameEvents |= BT_NAME_EVENT_REBOOT;
+			}
+			break;
+
+		default:
+			break;
+	}
+
+	return 1U;
+}
+
+void gestisciCambioNomeBT(void)
+{
+	u8 eventi;
+	u8 uart[100];
+
+	if(btNameState == BT_NAME_STATE_IDLE){
+		if(cambioNomeBT == 0U || BTattivo != 0U || updateAttivo != 0U){
+			return;
+		}
+
+		if(preparaNomeRN4678() == 0U){
+			inviaDebug(
+				(u8*)"[BT-NAME] identificativo non valido: usare 1-16 caratteri alfanumerici\n"
+			);
+			cambioNomeBT = 0U;
+			return;
+		}
+
+		btNameAttempt = 1U;
+		sprintf(
+			(char*)uart,
+			"[BT-NAME] avvio nome=%s tentativo 1/%u\n",
+			(char*)btNameRequested,
+			(unsigned int)BT_NAME_MAX_ATTEMPTS
+		);
+		inviaDebug(uart);
+		inviaIngressoCommandModeBT();
+		return;
+	}
+
+	/*
+	 * Una nuova connessione o un aggiornamento firmware hanno priorita.
+	 * Il flag resta attivo e la procedura ripartira dopo la disconnessione.
+	 */
+	if(BTattivo != 0U || updateAttivo != 0U){
+		btNameState = BT_NAME_STATE_IDLE;
+		btNameEvents = BT_NAME_EVENT_NONE;
+		btNameRxLength = 0U;
+		btNameAttempt = 0U;
+		inviaDebug((u8*)"[BT-NAME] procedura sospesa\n");
+		return;
+	}
+
+	eventi = btNameEvents;
+	if((eventi & BT_NAME_EVENT_ERR) != 0U){
+		inviaDebug((u8*)"[BT-NAME] risposta ERR dal modulo\n");
+		recuperaCambioNomeBT();
+		return;
+	}
+
+	switch(btNameState){
+		case BT_NAME_STATE_WAIT_CMD:
+		case BT_NAME_STATE_WAIT_RECOVERY_CMD:
+			if((eventi & BT_NAME_EVENT_CMD) != 0U){
+				inviaDebug((u8*)"[BT-NAME] Command mode confermato\n");
+				inviaComandoNomeBT();
+				return;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_SN_AOK:
+			if((eventi & BT_NAME_EVENT_AOK) != 0U){
+				inviaDebug((u8*)"[BT-NAME] comando SN accettato\n");
+				inviaVerificaNomeBT();
+				return;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_VERIFY:
+			if((eventi & BT_NAME_EVENT_VERIFIED) != 0U){
+				inviaDebug((u8*)"[BT-NAME] valore NVM verificato\n");
+				inviaRiavvioBT();
+				return;
+			}
+			break;
+
+		case BT_NAME_STATE_WAIT_REBOOT:
+			if((eventi & BT_NAME_EVENT_REBOOT) != 0U){
+				terminaCambioNomeBT(1U);
+				return;
+			}
+			break;
+
+		default:
+			break;
+	}
+
+	if((int32_t)(HAL_GetTick() - btNameDeadline) >= 0){
+		if(btNameState == BT_NAME_STATE_WAIT_RECOVERY_CMD){
+			/* ESC senza risposta: probabilmente eravamo in Data mode. */
+			inviaIngressoCommandModeBT();
+		}
+		else{
+			inviaDebug((u8*)"[BT-NAME] timeout risposta RN4678\n");
+			recuperaCambioNomeBT();
+		}
+	}
 }
 
 

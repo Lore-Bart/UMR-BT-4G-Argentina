@@ -350,6 +350,7 @@ u8 cercaStringa(u8* stringa1, u8* stringa2, int size, u8* pointer);
 
 void Print_ResetFlags(UART_HandleTypeDef *huart);
 void cambioNomeBTfunction(u8* stringa);
+void gestisciCambioNomeBT(void);
 void RTCpolling(void);
 void print_reset_cause(void);
 void disattivaInternet(u8* messaggio);

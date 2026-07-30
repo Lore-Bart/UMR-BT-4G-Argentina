@@ -1,6 +1,7 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
+#include "string.h"
 
 //periferiche
 extern I2C_HandleTypeDef hi2c1;
@@ -22,6 +23,7 @@ extern ADC_HandleTypeDef hadc1;
 extern int netCount;
 
 extern u8 emergenza;
+extern u8 cambioNomeBT;
 
 
 //conto gli impulsi del modulo 4G
@@ -74,18 +76,16 @@ uint8_t comparaStringhe(uint8_t *stringa1, uint8_t *stringa2, int size){
 }
 
 void cambioNomeBTfunction(u8* stringa){
-	u8 comando[30];
-
-	HAL_UART_Transmit(&huart2,(u8*)"$$$",3,100);
-	HAL_Delay(100);
-	sprintf(comando,"SN,%s\r",stringa);
-	HAL_UART_Transmit(&huart2,comando,strlen(comando),100);
-	HAL_Delay(100);
-	HAL_UART_Transmit(&huart2,(u8*)"R,1\r",4,100);
-	HAL_Delay(100);
+	/*
+	 * Compatibilita con eventuali vecchi richiami: la configurazione vera
+	 * viene ora eseguita in modo non bloccante da gestisciCambioNomeBT().
+	 * Il nome e ricavato dall'identificativo globale gia salvato dal comando.
+	 */
+	(void)stringa;
+	cambioNomeBT = 1U;
 }
 
-//delay(200) è circa 1 secondo
+//delay(200) Ã¨ circa 1 secondo
 void delay(long dato){
 	long i = 10000;
 	

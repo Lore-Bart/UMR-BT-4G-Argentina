@@ -579,19 +579,11 @@ int mymain(void){
 		}
 		
 		
-		//cambio nome BT
-		if(cambioNomeBT == 1 && statoModulo == 0 && BTattivo == 0){
-			cambioNomeBT = 0;
-			inviaDebug((u8*)"cambio nome BT");			
-			HAL_UART_Transmit(&huart2,(u8*)"$$$",3,100);
-			HAL_Delay(500);
-			HAL_UART_Transmit(&huart2,(u8*)"SN,",3,100);
-			HAL_UART_Transmit(&huart2,identificativo,16,100);
-			HAL_UART_Transmit(&huart2,(u8*)"\r",1,100);
-			HAL_Delay(500);
-			HAL_UART_Transmit(&huart2,(u8*)"---\r",4,100);
-			HAL_Delay(500);
-		}
+		/*
+		 * Cambio nome RN4678 non bloccante. La macchina a stati attende
+		 * CMD/AOK, verifica il valore con GN e applica la modifica con R,1.
+		 */
+		gestisciCambioNomeBT();
 
 		//controllo antifurto
 		if(controlloFurto == 1 && BTattivo == 0){
