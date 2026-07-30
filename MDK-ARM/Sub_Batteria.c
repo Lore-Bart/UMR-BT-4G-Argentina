@@ -457,8 +457,8 @@ long temperatura = 0;
  * se sono uguali il comando puo oscillare vicino alla soglia.
  * Entrambe devono stare dentro i limiti TEMP_SENSOR_MIN/MAX_VALID.
  */
-#define TEMP_MCU_CHARGE_MAX_C             52L
-#define TEMP_MCU_CHARGE_RESTART_C         50L
+#define TEMP_MCU_CHARGE_MAX_C             51L
+#define TEMP_MCU_CHARGE_RESTART_C         49L
 
 /*
  * Protezione termica estrema con isteresi. A EMERGENCY o oltre PE15
@@ -480,8 +480,8 @@ long temperatura = 0;
  * potrebbe ricollegarsi mentre la sola carica e ancora bloccata.
  * Le soglie devono stare dentro TEMP_SENSOR_MIN/MAX_VALID.
  */
-#define TEMP_MCU_EMERGENCY_C              67L
-#define TEMP_MCU_EMERGENCY_RESTART_C      64L
+#define TEMP_MCU_EMERGENCY_C              66L
+#define TEMP_MCU_EMERGENCY_RESTART_C      63L
 
 /*
  * Limiti inclusivi di plausibilita del sensore interno STM32.

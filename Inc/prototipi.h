@@ -97,6 +97,8 @@ static BatteryCalibration_t calibrazioneBatteria;
 
 void adeinit(void);
 int RicMsg(uint8_t* BuffIn, uint8_t* BuffOut, int pos, int oldpos,int sizeArray);
+void gestisciRicezioneUART6(void);
+void richiediRecuperoUART6(void);
 int mymain(void);
 uint32_t timetoposix(RTC_DateTypeDef data, RTC_TimeTypeDef ora);
 uint8_t WhatWeekDay(RTC_DateTypeDef data);

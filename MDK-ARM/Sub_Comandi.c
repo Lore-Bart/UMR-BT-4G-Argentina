@@ -359,7 +359,7 @@ void eseguiComandoBT(uint8_t *messaggio){
 				saveArrayFram(&identificativo[0],&addressFram[0],16);
 				offset[0] = 0; offset[1] = 16; //salvo in Tag NFC
 				writeNFC(&identificativo[0],16,&offset[0]);
-				cambioNomeBT = 1;
+				//cambioNomeBT = 1;
 				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				break;
 			

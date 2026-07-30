@@ -371,6 +371,15 @@ void ricalcolaSoglie(void){
 		
 		if(modif==1){
 			sprintf(sms,"overcurrent threshold modified: thrA: %dA  thrB: %dA",sogliaCorrenteA,sogliaCorrenteB);
+
+			/*
+			 * Il log seriale segnala sempre l'autoadeguamento, anche quando
+			 * l'invio degli SMS di allarme e disabilitato.
+			 */
+			inviaDebug((u8*)"[OVERCURRENT] ");
+			inviaDebug(&sms[0]);
+			inviaDebug((u8*)"\n");
+
 			if(allarmiSMSattivi != 0){
 				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen((char *)sms));
 			}
@@ -562,7 +571,6 @@ void ultimoGuasto(u8 *outBuf){
 		}
 	}
 }
-
 
 
 

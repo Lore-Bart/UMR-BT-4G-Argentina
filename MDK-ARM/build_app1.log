@@ -1,0 +1,1394 @@
+*** Using Compiler 'V5.06 update 6 (build 750)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
+Build target 'Firmware _APP1'
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling Sub_CRC.c...
+Sub_CRC.c(22): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_CRC.c(67): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"CRC: %x\n",wCrc);
+Sub_CRC.c(68): warning:  #223-D: function "strlen" declared implicitly
+  	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_CRC.c(72): warning:  #1-D: last line of file ends without a newline
+  }
+Sub_CRC.c(48): warning:  #177-D: variable "bytes"  was declared but never referenced
+  	u8 bytes[16];
+Sub_CRC.c: 5 warnings, 0 errors
+compiling mymain.c...
+mymain.c(491): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"\x1b");
+mymain.c(570): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"CRC error",9);
+mymain.c(295): warning:  #177-D: variable "offset"  was declared but never referenced
+  		u8 offset[2];
+mymain.c(296): warning:  #177-D: variable "beforeOffset"  was declared but never referenced
+  		u16 beforeOffset;	
+mymain.c(297): warning:  #177-D: variable "formattatore"  was declared but never referenced
+  		u8 formattatore[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+mymain.c(298): warning:  #177-D: variable "messaggio"  was declared but never referenced
+  		u8 messaggio[100];
+mymain.c(301): warning:  #177-D: variable "name"  was declared but never referenced
+  		u8 name[31];
+mymain.c(302): warning:  #177-D: variable "corrente"  was declared but never referenced
+  		u32 corrente[6];
+mymain.c(303): warning:  #177-D: variable "diff"  was declared but never referenced
+  		u16 diff[6];
+mymain.c(304): warning:  #177-D: variable "addressFram"  was declared but never referenced
+  		u8 addressFram[2];
+mymain.c(305): warning:  #177-D: variable "u"  was declared but never referenced
+  		int u = 0;
+mymain.c(312): warning:  #177-D: variable "uartmsg"  was declared but never referenced
+  			u8 uartmsg[100];
+mymain.c: 12 warnings, 0 errors
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling main.c...
+compiling Sub_BOOT.c...
+Sub_BOOT.c(181): warning:  #177-D: variable "i"  was declared but never referenced
+  	int i = 0;
+Sub_BOOT.c(335): warning:  #177-D: variable "command3"  was declared but never referenced
+  	uint8_t command3[10] = "AT+CMGF=1\r";
+Sub_BOOT.c(377): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  sprintf(&password[0],"00000000");
+Sub_BOOT.c: 3 warnings, 0 errors
+compiling Sub_Comandi.c...
+Sub_Comandi.c(200): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	pwOff = strlen(password)+2;
+Sub_Comandi.c(336): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"set: %d\n",A);
+Sub_Comandi.c(337): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
+Sub_Comandi.c(386): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"BT update start, packets: %u\n", (unsigned int)paccTot);
+Sub_Comandi.c(420): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  				if(comparaStringhe(&password[0],&oldPassword[0],strlen(password)) == 0 || strlen(password) != strlen(oldPassword)){
+Sub_Comandi.c(420): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  				if(comparaStringhe(&password[0],&oldPassword[0],strlen(password)) == 0 || strlen(password) != strlen(oldPassword)){
+Sub_Comandi.c(420): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				if(comparaStringhe(&password[0],&oldPassword[0],strlen(password)) == 0 || strlen(password) != strlen(oldPassword)){
+Sub_Comandi.c(435): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					HAL_UART_Transmit(&huart1,&newPassword[0],strlen(newPassword),100);
+Sub_Comandi.c(680): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"%d",LoadActive);
+Sub_Comandi.c(682): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"%d",MeasActive);
+Sub_Comandi.c(695): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"\0");
+Sub_Comandi.c(706): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"11");
+Sub_Comandi.c(710): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"00");
+Sub_Comandi.c(871): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	pwOff = strlen(password)+2;
+Sub_Comandi.c(890): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(897): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(912): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&data[0],256);
+Sub_Comandi.c(925): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&data[0],272);
+Sub_Comandi.c(944): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(961): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(969): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"set A: %d\n",A);
+Sub_Comandi.c(970): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
+Sub_Comandi.c(971): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);					
+Sub_Comandi.c(978): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(993): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(998): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(1003): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(1008): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(1013): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&data[0],144);
+Sub_Comandi.c(1022): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&string[0],80);
+Sub_Comandi.c(1031): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&string[0],112);
+Sub_Comandi.c(1042): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&string[0],54);
+Sub_Comandi.c(1052): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(1075): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(1082): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);
+Sub_Comandi.c(848): warning:  #177-D: variable "B"  was declared but never referenced
+  	u32 A,B;
+Sub_Comandi.c(850): warning:  #177-D: variable "i"  was declared but never referenced
+  	int i = 0; //indice
+Sub_Comandi.c(1115): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(i != strlen(password)){
+Sub_Comandi.c(1119): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordLocal[0], &password[0], i) && strlen(passwordLocal) == strlen(password)){
+Sub_Comandi.c(1119): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordLocal[0], &password[0], i) && strlen(passwordLocal) == strlen(password)){
+Sub_Comandi.c(1100): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[20];
+Sub_Comandi.c(1176): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(stringa,"AT+QBTNAME =\x22");
+Sub_Comandi.c: 42 warnings, 0 errors
+compiling Sub_ADE.c...
+Sub_ADE.c(229): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_ADE.c(347): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_ADE.c(452): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_ADE.c(453): warning:  #177-D: variable "data"  was declared but never referenced
+  	u8 data[4];
+Sub_ADE.c(673): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I1[0]) > sogliaI && 25*abs(E1[0]) > abs(Q1[0]) ){
+Sub_ADE.c(718): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I1[1]) > sogliaI && 25*abs(E1[1]) > abs(Q1[1])){
+Sub_ADE.c(763): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I1[2]) > sogliaI && 25*abs(E1[2]) > abs(Q1[2])){
+Sub_ADE.c(661): warning:  #550-D: variable "sniff"  was set but never used
+  double stampella,cosfi,sniff;
+Sub_ADE.c(662): warning:  #177-D: variable "azzeroregistri"  was declared but never referenced
+  u8 azzeroregistri[3] = {0xe7,0x02,0x78};
+Sub_ADE.c(667): warning:  #177-D: variable "uart"  was declared but never referenced
+  u8 uart[100];
+Sub_ADE.c(963): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I2[0]) > sogliaI && 25*abs(E2[0]) > abs(Q2[0])){
+Sub_ADE.c(1006): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I2[1]) > sogliaI && 25*abs(E2[1]) > abs(Q2[1])){
+Sub_ADE.c(1049): warning:  #223-D: function "abs" declared implicitly
+  if(abs(I2[2]) > sogliaI && 25*abs(E2[2]) > abs(Q2[2])){
+Sub_ADE.c(954): warning:  #177-D: variable "azzeroregistri"  was declared but never referenced
+  u8 azzeroregistri[3] = {0xe7,0x02,0x78};
+Sub_ADE.c(1259): warning:  #177-D: variable "reset"  was declared but never referenced
+  	u8 reset[3] = {0xe7,0x02,0x78};
+Sub_ADE.c(1284): warning:  #177-D: variable "tensione"  was declared but never referenced
+  		u32 tensione = 22000;
+Sub_ADE.c(1285): warning:  #177-D: variable "corrente"  was declared but never referenced
+  		u32 corrente = 5000;
+Sub_ADE.c(1286): warning:  #177-D: variable "potenzaA"  was declared but never referenced
+  		u32 potenzaA = 18000;
+Sub_ADE.c(1287): warning:  #177-D: variable "potenzaR"  was declared but never referenced
+  		u32 potenzaR = 8718;
+Sub_ADE.c(1288): warning:  #177-D: variable "cosfi"  was declared but never referenced
+  		u16 cosfi = 90;
+Sub_ADE.c(1289): warning:  #177-D: variable "fi"  was declared but never referenced
+  		u16 fi = 2600;
+Sub_ADE.c(1290): warning:  #177-D: variable "localsoftware"  was declared but never referenced
+  		u16 localsoftware = 126;
+Sub_ADE.c: 22 warnings, 0 errors
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling Sub_Neutro.c...
+Sub_Neutro.c(145): warning:  #223-D: function "abs" declared implicitly
+  	diff[0] = abs(V[0]-V[1]);
+Sub_Neutro.c(197): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(sms,"alarm!\nneutral event started\nUMR: ----------------\nmaximum voltage difference: %.2f V\nlat: %.3f  long: %.3f",max,latitudineD,longitudineD);
+Sub_Neutro.c(200): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(200): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(240): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(sms,"neutral event ended\nUMR: ----------------\nlat: %.3f  long: %.3f",latitudineD,longitudineD);
+Sub_Neutro.c(243): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(243): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(133): warning:  #177-D: variable "i"  was declared but never referenced
+  	int i = 0;
+Sub_Neutro.c(474): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(sms,"Under-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
+Sub_Neutro.c(478): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(478): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(451): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Neutro.c(515): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(sms,"Over-voltage alarm!\nUMR-BT: ----------------\nlat: %.3f  long: %.3f\nV1 = %.2fV\nV2 = %.2fV\nV3 = %.2fV",latitudineD,longitudineD,Vlocal[0],Vlocal[1],Vlocal[2]);
+Sub_Neutro.c(519): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(519): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),sms,strlen(sms));
+Sub_Neutro.c(492): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Neutro.c: 16 warnings, 0 errors
+compiling Sub_FRAM.c...
+Sub_FRAM.c(61): warning:  #177-D: variable "i"  was declared but never referenced
+  	int i = 0;
+Sub_FRAM.c: 1 warning, 0 errors
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling Sub_Generiche.c...
+Sub_Generiche.c(46): warning:  #223-D: function "strlen" declared implicitly
+  	limite = strlen(stringa1)-size;
+Sub_Generiche.c(81): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(comando,"SN,%s\r",stringa);
+Sub_Generiche.c(82): warning:  #223-D: function "strlen" declared implicitly
+  	HAL_UART_Transmit(&huart2,comando,strlen(comando),100);
+Sub_Generiche.c(504): warning:  #223-D: function "strlen" declared implicitly
+  	HAL_UART_Transmit(&huart1,messaggio,strlen(messaggio),100);
+Sub_Generiche.c(513): warning:  #223-D: function "strlen" declared implicitly
+  	HAL_UART_Transmit(&huart6,messaggio,strlen(messaggio),100);
+Sub_Generiche.c: 5 warnings, 0 errors
+compiling Sub_Batteria.c...
+Sub_Batteria.c(1734): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"tensione1: %f\n",tensione);
+Sub_Batteria.c(1749): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"tensione2: %f\n",tensione);
+Sub_Batteria.c(1764): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"tensione1: %f\n",tensione);
+Sub_Batteria.c(1779): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"tensione2: %f\n",tensione);
+Sub_Batteria.c(1787): warning:  #177-D: variable "rimettiInCarica"  was declared but never referenced
+  	u8 rimettiInCarica = 0;
+Sub_Batteria.c(2138): warning:  #550-D: variable "dutyPercentuale"  was set but never used
+      u8 dutyPercentuale = 0;
+Sub_Batteria.c: 6 warnings, 0 errors
+compiling Sub_Guasti.c...
+Sub_Guasti.c(254): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(sms,"Alarm!\ndetected overcurrent!\nUMR: ----------------\ncurrent maximum value: %d A\nlat: %.3f  long: %.3f",maxValue,latitudineD,longitudineD);
+Sub_Guasti.c(257): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
+Sub_Guasti.c(257): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen(sms));
+Sub_Guasti.c(161): warning:  #177-D: variable "inviaTutto"  was declared but never referenced
+  	u8 inviaTutto[100];
+Sub_Guasti.c(373): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(sms,"overcurrent threshold modified: thrA: %dA  thrB: %dA",sogliaCorrenteA,sogliaCorrenteB);
+Sub_Guasti.c(375): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&sms[0],strlen((char *)sms));
+Sub_Guasti.c(393): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Guasti.c: 7 warnings, 0 errors
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling Sub_FLASH.c...
+Sub_FLASH.c(100): warning:  #177-D: variable "messaggio"  was declared but never referenced
+  	uint8_t save[260],messaggio[100];
+Sub_FLASH.c: 1 warning, 0 errors
+Before Translate - User command #1: "C:\Keil_v5\ARM\ARMCC\bin\fromelf.exe" --bin --output=".\bin\app_08008200.bin" ".\Firmware V3\Firmware_APP1.axf"
+compiling Sub_GSM.c...
+Sub_GSM.c(417): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"AT+HTTPREAD=%d\r",numeroByte);
+Sub_GSM.c(516): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"stato modulo:%d\n",statoModulo);
+Sub_GSM.c(307): warning:  #177-D: variable "signal"  was declared but never referenced
+  	uint8_t signal[3] = "CSQ"; //SEGNALE
+Sub_GSM.c(556): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(556): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(556): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(557): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(567): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(523): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(595): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(595): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(595): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(596): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(602): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(576): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(577): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(581): warning:  #177-D: variable "NTPaddressLocal"  was declared but never referenced
+  	u8 NTPaddressLocal[50];
+Sub_GSM.c(625): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(625): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(625): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(626): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(630): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(607): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(608): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(611): warning:  #177-D: variable "NTPaddressLocal"  was declared but never referenced
+  	u8 NTPaddressLocal[50];
+Sub_GSM.c(669): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"time = %d\n",timeLocal);
+Sub_GSM.c(670): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_GSM.c(696): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(696): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(696): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(697): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(701): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"Ipot:%d",Ipot);
+Sub_GSM.c(702): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(702): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(678): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(726): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(726): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(726): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(727): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(731): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"soglia:%d",sogliaI);
+Sub_GSM.c(732): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(732): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(708): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(756): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(756): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(756): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(757): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(761): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"under-voltage threshold: %d V",underVoltageTH/100);
+Sub_GSM.c(762): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(762): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(738): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(786): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(786): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(786): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(787): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(791): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"over-voltage threshold: %d V",overVoltageTH/100);
+Sub_GSM.c(792): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(792): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(768): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(841): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"soglia = %d\n",sogliaIlocal);
+Sub_GSM.c(851): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(851): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(851): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(852): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(860): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"Ipot:%d",Ipot);
+Sub_GSM.c(861): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(861): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(799): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(913): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(913): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(913): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(914): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(924): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"soglia:%d",sogliaI);
+Sub_GSM.c(925): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(925): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(868): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(980): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(980): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(980): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(981): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(990): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"under-voltage threshold: %d V",underVoltageTH/100);
+Sub_GSM.c(991): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(991): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(932): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(1025): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1025): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1025): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1026): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1032): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"function deactived");
+Sub_GSM.c(1036): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"saving every minute");
+Sub_GSM.c(1040): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"saving every 3 minutes");
+Sub_GSM.c(1044): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"saving every 5 minutes");
+Sub_GSM.c(1047): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"time not valid");
+Sub_GSM.c(1053): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(1053): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(997): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(998): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(1003): warning:  #177-D: variable "sogliaVlocal"  was declared but never referenced
+  	u32 sogliaVlocal = 0;
+Sub_GSM.c(1109): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1109): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1109): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1110): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1119): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"over-voltage threshold: %d V",overVoltageTH/100);
+Sub_GSM.c(1120): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(1120): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(1061): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(1154): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1154): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1154): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1155): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1162): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"debug attivato");
+Sub_GSM.c(1166): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"debug disattivato");
+Sub_GSM.c(1171): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(1171): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),uart,strlen(uart));
+Sub_GSM.c(1129): warning:  #177-D: variable "sogliaChar"  was declared but never referenced
+  	u8 sogliaChar[150];
+Sub_GSM.c(1130): warning:  #177-D: variable "sogliaVlocal"  was declared but never referenced
+  	u32 sogliaVlocal = 0;
+Sub_GSM.c(1184): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[19],&APN[0],strlen(APN));
+Sub_GSM.c(1185): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&setAPN3[0],2);
+Sub_GSM.c(1189): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart6,&setAPN[0],strlen(setAPN),1000);
+Sub_GSM.c(1212): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[13],&APN[0],strlen(APN));
+Sub_GSM.c(1213): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&setAPN3[0],3);
+Sub_GSM.c(1214): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&userAPN[0],strlen(userAPN));
+Sub_GSM.c(1214): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&userAPN[0],strlen(userAPN));
+Sub_GSM.c(1215): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&setAPN4[0],3);
+Sub_GSM.c(1216): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&pwAPN[0],strlen(pwAPN));
+Sub_GSM.c(1216): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&pwAPN[0],strlen(pwAPN));
+Sub_GSM.c(1217): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&setAPN[strlen(setAPN)],&setAPN5[0],5);
+Sub_GSM.c(1220): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,&setAPN[0],strlen(setAPN),1000);
+Sub_GSM.c(1221): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart6,&setAPN[0],strlen(setAPN),1000);
+Sub_GSM.c(1210): warning:  #177-D: variable "richiestaIP"  was declared but never referenced
+  	u8 richiestaIP[11] = "AT+QILOCIP\r";
+Sub_GSM.c(1287): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1287): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1287): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1288): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1304): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1239): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1326): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1326): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1326): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1327): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1336): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1364): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1364): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1364): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1365): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1369): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1341): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(1342): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1405): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1405): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1405): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1406): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1410): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1382): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(1383): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1454): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1454): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1454): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1455): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1462): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"CONNECTED",9);
+Sub_GSM.c(1465): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"NOT CONNECTED",13);
+Sub_GSM.c(1431): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(1432): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1433): warning:  #177-D: variable "addressFram"  was declared but never referenced
+  	u8 addressFram[2] = {2,0};
+Sub_GSM.c(1582): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1582): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1582): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1583): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1600): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1473): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1645): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1645): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1645): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1646): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);		
+Sub_GSM.c(1652): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1696): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(URL,"AT+HTTPPARA=\x22URL\x22,\x22");	
+Sub_GSM.c(1700): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				sprintf(&upAddressGSM[strlen(upAddressGSM)],"?pos=up&pack=");
+Sub_GSM.c(1700): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&upAddressGSM[strlen(upAddressGSM)],"?pos=up&pack=");
+Sub_GSM.c(1703): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				sprintf(&upAddressGSM[strlen(upAddressGSM)],"?pos=down&pack=");
+Sub_GSM.c(1703): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&upAddressGSM[strlen(upAddressGSM)],"?pos=down&pack=");
+Sub_GSM.c(1706): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&URL[strlen(URL)],upAddressGSM,strlen(upAddressGSM));
+Sub_GSM.c(1706): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&URL[strlen(URL)],upAddressGSM,strlen(upAddressGSM));
+Sub_GSM.c(1708): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	URL[strlen(URL)] = '0';
+Sub_GSM.c(1709): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	URL[strlen(URL)] = '\x22';
+Sub_GSM.c(1710): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	URL[strlen(URL)] = '\r';
+Sub_GSM.c(1712): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart6,URL,strlen(URL),1000);
+Sub_GSM.c(1688): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(1774): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(&command[59],"%d",pack);
+Sub_GSM.c(1775): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart6,command,strlen(command),100);
+Sub_GSM.c(1776): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,command,strlen(command),100);
+Sub_GSM.c(1807): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"messaggio 0: ");
+Sub_GSM.c(1808): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_GSM.c(1831): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"dati: %d %x %d\n", updateGSMvers,crcGSM, packTotGSM);
+Sub_GSM.c(1832): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_GSM.c(1879): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"pack:\n",packGSM[u]);
+Sub_GSM.c(1879): warning:  #225-D: the format string ends before this argument
+  		sprintf(uart,"pack:\n",packGSM[u]);
+Sub_GSM.c(1880): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_GSM.c(1896): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	sizePack = strlen(uartPack);
+Sub_GSM.c(1795): warning:  #177-D: variable "bytes"  was declared but never referenced
+  	u8 bytes[500];
+Sub_GSM.c(1970): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1970): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1970): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(1971): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(1976): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	copiaArray(&upAddressGSM[0],&upAddressLocal[0],strlen(upAddressLocal)+1);
+Sub_GSM.c(1977): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(1941): warning:  #177-D: variable "o"  was declared but never referenced
+  	int o = 0;
+Sub_GSM.c(1943): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(2020): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(2020): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(2020): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	if(comparaStringhe(&passwordSent[0],&password[0],strlen(password)) != 1 || strlen(password)  != strlen(passwordSent)){
+Sub_GSM.c(2021): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"PASSWORD NOT VALID",18);
+Sub_GSM.c(2025): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"OK",2);
+Sub_GSM.c(2002): warning:  #177-D: variable "a"  was declared but never referenced
+  	int a = 0;
+Sub_GSM.c(2003): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_GSM.c(2055): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(data,"AT+QMGDA= DEL ALL \r");
+Sub_GSM.c(2058): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart6,data,strlen(data),100);
+Sub_GSM.c(2342): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&numeroDevice[0],strlen(numeroAllarmi),&messaggio[0],18);
+Sub_GSM.c: 217 warnings, 0 errors
+compiling Sub_NFC.c...
+Sub_NFC.c(255): warning:  #177-D: variable "result"  was declared but never referenced
+  	u8 result = 0;
+Sub_NFC.c(256): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_NFC.c(264): warning:  #177-D: variable "ciao"  was declared but never referenced
+  	uint32_t ciao = 0xfff;
+Sub_NFC.c(311): warning:  #177-D: variable "result"  was declared but never referenced
+  	u8 result = 0;
+Sub_NFC.c(312): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_NFC.c(314): warning:  #177-D: variable "scrittura1"  was declared but never referenced
+  	uint8_t scrittura1[10] = {0x02,0,0xd6,0,0,0x02,0x1f,0xef,0,0};
+Sub_NFC.c(315): warning:  #177-D: variable "scrittura3"  was declared but never referenced
+  	uint8_t scrittura3[18] = {0x02,0,0xd6,0,0x02,0x0a,0xc1,1,0,0,0x1f,0xe8,0x54,0x02,0x65,0x6e,0,0};
+Sub_NFC.c(316): warning:  #177-D: variable "scrittura4"  was declared but never referenced
+  	uint8_t scrittura4[12] = {0x02,0,0xd6,0,0x0c,4,0,0,0,0,0,0};
+Sub_NFC.c(320): warning:  #177-D: variable "ciao"  was declared but never referenced
+  	uint32_t ciao = 0xfff;
+Sub_NFC.c(361): warning:  #1-D: last line of file ends without a newline
+  }
+Sub_NFC.c: 10 warnings, 0 errors
+compiling Sub_RTC.c...
+Sub_RTC.c(321): warning:  #177-D: variable "avvio"  was declared but never referenced
+  	static u8 avvio = 0;
+Sub_RTC.c(322): warning:  #177-D: variable "a"  was declared but never referenced
+  	static u8 a = 0;
+Sub_RTC.c(329): warning:  #177-D: variable "uart"  was declared but never referenced
+  	static u8 uart[50];
+Sub_RTC.c(335): warning:  #177-D: variable "accensione"  was declared but never referenced
+  	static int accensione = 0;
+Sub_RTC.c(660): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"erase load profiles FLASH sector %u started\n",flashBlock);
+Sub_RTC.c(669): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"erase load profiles FLASH retry %u sector %u\n",flashLoadEraseRetry,flashBlock);
+Sub_RTC.c(672): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase load profiles FLASH sector skipped %u\n",flashBlock);
+Sub_RTC.c(685): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase load profiles completed with residual valid records: %u\n",profiliResidui);
+Sub_RTC.c(695): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"erase measurand profiles FLASH sector %u started\n",flashBlock);
+Sub_RTC.c(704): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"erase measurand profiles FLASH retry %u sector %u\n",flashMeasEraseRetry,flashBlock);
+Sub_RTC.c(707): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase measurand profiles FLASH sector skipped %u\n",flashBlock);
+Sub_RTC.c(720): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase measurand profiles completed with residual valid records: %u\n",profiliResidui);
+Sub_RTC.c(758): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase overcurrent/fault NFC retry %u offset %u\n",nfcGuastiEraseRetry,beforeOffset);
+Sub_RTC.c(761): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  						sprintf(uart,"erase overcurrent/fault NFC block skipped offset %u\n",beforeOffset);
+Sub_RTC.c(806): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"erase neutral/imbalance NFC retry %u offset %u\n",nfcNeutroEraseRetry,beforeOffset);
+Sub_RTC.c(809): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  						sprintf(uart,"erase neutral/imbalance NFC block skipped offset %u\n",beforeOffset);
+Sub_RTC.c(895): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"load: %d meas: %d\n", indiceLoad,indiceMeas);
+Sub_RTC.c(896): warning:  #223-D: function "strlen" declared implicitly
+  			HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_RTC.c(921): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"tensioni %.2f %.2f %.2f\n",(float)V[0]/100,(float)V[1]/100,(float)V[2]/100);
+Sub_RTC.c(923): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"correnti %.2f %.2f %.2f %.2f %.2f %.2f\n",(float)I1[0]/100,(float)I1[1]/100,(float)I1[2]/100,(float)I2[0]/100,(float)I2[1]/100,(float)I2[2]/100);
+Sub_RTC.c(925): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"Potenza A %.2f %.2f %.2f %.2f %.2f %.2f\n",(float)P1[0]/100,(float)P1[1]/100,(float)P1[2]/100,(float)P2[0]/100,(float)P2[1]/100,(float)P2[2]/100);
+Sub_RTC.c(927): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"Potenza R %.2f %.2f %.2f %.2f %.2f %.2f\n",(float)Q1[0]/100,(float)Q1[1]/100,(float)Q1[2]/100,(float)Q2[0]/100,(float)Q2[1]/100,(float)Q2[2]/100);
+Sub_RTC.c(929): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"phi %d %d %d %d %d %d\n\n",phi1[0],phi1[1],phi1[2],phi2[0],phi2[1],phi2[2]);
+Sub_RTC.c(946): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_RTC.c(990): warning:  #177-D: variable "setTime"  was declared but never referenced
+  			RTC_TimeTypeDef setTime;			
+Sub_RTC.c(1333): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_RTC.c(1488): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"input %d\n\n", A);
+Sub_RTC.c(1489): warning:  #223-D: function "strlen" declared implicitly
+  	    HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_RTC.c(1633): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"set: %d %d %d     %d %d %d\n%d\n\n", setDate.Date, setDate.Month, setDate.Year, setTime.Hours,setTime.Minutes, setTime.Seconds,myTimeVar);
+Sub_RTC.c(1642): warning:  #177-D: variable "uart"  was declared but never referenced
+  			u8 uart[100];
+Sub_RTC.c: 30 warnings, 0 errors
+compiling Sub_Tampering.c...
+Sub_Tampering.c(151): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(messaggio,"Alarm!\nthis cabinet could be open: ----------------\nlat: %.3f  long: %.3f",latitudineD,longitudineD);
+Sub_Tampering.c(154): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(messaggio));
+Sub_Tampering.c(154): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(messaggio));
+Sub_Tampering.c(205): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(messaggio,"Alarm!\n this cabinet has been opened: ----------------\nlat: %3f  long%3f",latitudineD,longitudineD);
+Sub_Tampering.c(208): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],100);
+Sub_Tampering.c: 5 warnings, 0 errors
+compiling Sub_Salvataggi.c...
+Sub_Salvataggi.c(163): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Salvataggi.c(164): warning:  #177-D: variable "addressFlash"  was declared but never referenced
+  	u8 addressFlash[3] = {0,0,0};
+Sub_Salvataggi.c(291): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"%d %d %d %d\n",uart[0],uart[1],uart[2],uart[3]);
+Sub_Salvataggi.c(292): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Salvataggi.c(295): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"%d %d %d %d\n",uart[0],uart[1],uart[2],uart[3]);
+Sub_Salvataggi.c(296): warning:  #167-D: argument of type "uint8_t *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Salvataggi.c(869): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Salvataggi.c(870): warning:  #550-D: variable "sniff"  was set but never used
+  	long sniff;
+Sub_Salvataggi.c(1025): warning:  #550-D: variable "sniff"  was set but never used
+  	u32 sniff;
+Sub_Salvataggi.c(1026): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Salvataggi.c(1170): warning:  #177-D: variable "addressFlash3"  was declared but never referenced
+  	u8 addressFlash3[3] = {0,0,0};
+Sub_Salvataggi.c(1182): warning:  #177-D: variable "c"  was declared but never referenced
+  	u16 c = 0;
+Sub_Salvataggi.c(1507): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"contatore: %d\n", contatore);
+Sub_Salvataggi.c(1508): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Salvataggi.c(1302): warning:  #177-D: variable "beforeAddressFlash"  was declared but never referenced
+  	u32 beforeAddressFlash;
+Sub_Salvataggi.c(1303): warning:  #177-D: variable "beforeAddressFram"  was declared but never referenced
+  	u16 beforeAddressFram;
+Sub_Salvataggi.c(1700): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,&messaggio[0],strlen(messaggio),1000);
+Sub_Salvataggi.c(1745): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,&messaggio[0],strlen(messaggio),1000);
+Sub_Salvataggi.c: 18 warnings, 0 errors
+compiling Sub_UART.c...
+Sub_UART.c(107): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(uart,"BT rx bytes: %u\n", (unsigned int)sizeBT);
+Sub_UART.c(108): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_UART.c(142): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"BT update partial packet: %u/74\n", (unsigned int)updatePacketBTsize);
+Sub_UART.c: 3 warnings, 0 errors
+compiling Sub_Database.c...
+Sub_Database.c(9): warning:  #1-D: last line of file ends without a newline
+  }
+Sub_Database.c: 1 warning, 0 errors
+compiling Sub_Test.c...
+Sub_Test.c(142): warning:  #177-D: variable "offset"  was declared but never referenced
+  	u8 offset[2] = {0,16};
+Sub_Test.c(143): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[20];
+Sub_Test.c(208): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I1[0]) < sogliaI){
+Sub_Test.c(215): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I1[1]) < sogliaI){
+Sub_Test.c(222): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I1[2]) < sogliaI){
+Sub_Test.c(229): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I2[0]) < sogliaI){
+Sub_Test.c(236): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I2[1]) < sogliaI){
+Sub_Test.c(243): warning:  #223-D: function "abs" declared implicitly
+  				if(abs(I2[2]) < sogliaI){
+Sub_Test.c(269): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"4G = %d stato = %d internet = %d\n", stato4G, statoModulo, statoInternet);
+Sub_Test.c(279): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"epoch: %d    %d/%d/%d  %d.%d.%d\n", myTimeVar, currentDate.Date,currentDate.Month,currentDate.Year, currentTime.Hours, currentTime.Minutes, currentTime.Seconds);			
+Sub_Test.c(307): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"set: %d\n",A);
+Sub_Test.c(308): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
+Sub_Test.c(320): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"stato: %d\n",statoModulo);
+Sub_Test.c(321): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Test.c(348): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"http://a2atestmisure.altervista.org/aggiornamento.php");
+Sub_Test.c(349): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				uart[strlen(uart)] = 0;
+Sub_Test.c(350): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				copiaArray(&upAddressGSM[0],&uart[0],strlen(uart)+1);			
+Sub_Test.c(455): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&APN[0],"ibox.tim.it");
+Sub_Test.c(456): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&mySQL[0],"http://a2atestmisure.altervista.org");
+Sub_Test.c(457): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&userSQL[0],"a2atestmisure");
+Sub_Test.c(458): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(&pwSQL[0],"REPL");
+Sub_Test.c(480): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"%d\n",acquisizioneTemp());
+Sub_Test.c(481): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Test.c(484): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"%f\n",controllaBatteriaProva());
+Sub_Test.c(485): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Test.c(503): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  					sprintf(uart,"%d\n",controllaBatteriaProva5());
+Sub_Test.c(504): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  					HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_Test.c(518): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(APN,"ibox.tim.it");
+Sub_Test.c(519): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(mySQL,"http://a2atestmisure.altervista.org");
+Sub_Test.c(520): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(userSQL,"a2atestmisure");
+Sub_Test.c(521): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(pwSQL,"REPL");
+Sub_Test.c(654): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"%d %d %d\n",statoModulo, updateGSMatt, timerUpdateGSM);
+Sub_Test.c(655): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
+Sub_Test.c(669): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"Alarm!\nthis cabinet could be open: ----------------\nlat:   long: ");
+Sub_Test.c(670): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(uart));
+Sub_Test.c(670): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  				inviaSMS(&numeroAllarmi[0],strlen(numeroAllarmi),&messaggio[0],strlen(uart));
+Sub_Test.c(698): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"voltage: %d %d %d\n",corrV[0],corrV[1],corrV[2]);
+Sub_Test.c(700): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"current: %d %d %d %d %d %d\n",corrI1[0],corrI1[1],corrI1[2],corrI2[0],corrI2[1],corrI2[2]);
+Sub_Test.c(702): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"active energy: %d %d %d %d %d %d\n",corrE1[0],corrE1[1],corrE1[2],corrE2[0],corrE2[1],corrE2[2]);
+Sub_Test.c(704): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"reactive energy: %d %d %d %d %d %d\n",corrR1[0],corrR1[1],corrR1[2],corrR2[0],corrR2[1],corrR2[2]);
+Sub_Test.c(706): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  				sprintf(uart,"fault: %d %d %d %d %d %d\n",calibrazioneI[0],calibrazioneI[1],calibrazioneI[2],calibrazioneI[3],calibrazioneI[4],calibrazioneI[5]);
+Sub_Test.c(163): warning:  #177-D: variable "WP"  was declared but never referenced
+  	u8 WP[4] = "WP\r\n";
+Sub_Test.c(165): warning:  #177-D: variable "smsTestMessage"  was declared but never referenced
+  	u8 smsTestMessage[8] = "CIAO";
+Sub_Test.c(166): warning:  #177-D: variable "identificativoTest"  was declared but never referenced
+  	u8 identificativoTest[16] = "TEST UMR        ";
+Sub_Test.c(171): warning:  #177-D: variable "ciao"  was declared but never referenced
+  	u32 ciao = 23100;
+Sub_Test.c(172): warning:  #177-D: variable "ciao3"  was declared but never referenced
+  	u16 ciao3 = 200;
+Sub_Test.c(173): warning:  #177-D: variable "b"  was declared but never referenced
+  	u32 a,b;
+Sub_Test.c(183): warning:  #177-D: variable "currentDateLocal"  was declared but never referenced
+  	RTC_DateTypeDef currentDateLocal;
+Sub_Test.c(184): warning:  #177-D: variable "currentTimeLocal"  was declared but never referenced
+  	RTC_TimeTypeDef currentTimeLocal;
+Sub_Test.c(765): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_Test.c(865): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(stringa1,"http://testmisure.altervista.org/salvaMeas.php?time=%d&V1=%d&V2=%d&V3=%d&I1a=%ld&I2a=%ld&I3a=%ld&I1b=%ld&I2b=%ld&I3b=%d&f1a=%d&f2a=%d&f3a=%d&f1b=%d&f2b=%d&f3b=%d&cf1a=%d&cf2a=%d&cf3a=%d&cf1b=%d&cf2b=%d&cf3b=%d&P1a=%ld&P2a=%ld&P3a=%ld&P1b=%ld&P2b=%ld&P3b=%ld&Q1a=%ld&Q2a=%ld&Q3a=%ld&Q1b=%ld&Q2b=%ld&Q3b=%d\n\n",myTimeVar, V[0],V[1],V[2],I1[0],I1[1],I1[2],I2[0],I2[1],I2[2],phi1[0],phi1[1],phi1[2],phi2[0],phi2[1],phi2[2],cosphi1[0],cosphi1[1],cosphi1[2],cosphi2[0],cosphi2[1],cosphi2[2],P1[0],P1[1],P1[2],P2[0],P2[1],P2[2],Q1[0],Q1[1],Q1[2],Q2[0],Q2[1],Q2[2]);   
+Sub_Test.c(866): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  	sprintf(stringa3,"http://testmisure.altervista.org/salvaLoad.php?time=%d&E1pa=%d&E2pa=%d&E3pa=%d&E1pb=%d&E2pb=%d&E3pb=%d&E1na=%d&E2na=%d&E3na=%d&E1nb=%d&E2nb=%d&E3nb=%d&R1pa=%d&R2pa=%d&R3pa=%d&R1pb=%d&R2pb=%d&R3pb=%d&R1na=%d&R2na=%d&R3na=%d&R1nb=%d&R2nb=%d&R3nb=%d\n\n",myTimeVar,E1p[0],E1p[1],E1p[2],E2p[0],E2p[1],E2p[2],E1n[0],E1n[1],E1n[2],E2n[0],E2n[1],E2n[2],R1p[0],R1p[1],R1p[2],R2p[0],R2p[1],R2p[2],R1n[0],R1n[1],R1n[2],R2n[0],R2n[1],R2n[2]);
+Sub_Test.c(870): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	HAL_UART_Transmit(&huart1,stringa3,strlen(stringa3),100);
+Sub_Test.c: 53 warnings, 0 errors
+compiling Sub_UPDATE.c...
+Sub_UPDATE.c(155): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"BT update flash verify failed pkt %u addr 0x%08X\n", (unsigned int)packetIndex, (unsigned int)address);
+Sub_UPDATE.c(180): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"BT update invalid packet %u/%u\n", (unsigned int)nPacchetto, (unsigned int)paccTot);
+Sub_UPDATE.c(203): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"BT update target slot base: 0x%08X\n", (unsigned int)(BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app)));
+Sub_UPDATE.c(254): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"BT update invalid packet %u/%u\n", (unsigned int)nPacchetto, (unsigned int)paccTot);
+Sub_UPDATE.c(282): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  			sprintf(uart,"BT update target slot base: 0x%08X\n", (unsigned int)(BT_UPDATE_APP1_BASE_ADDR + (BT_UPDATE_APP_SLOT_SIZE_BYTES * app)));
+Sub_UPDATE.c(315): warning:  #550-D: variable "address3"  was set but never used
+  	u32 address,address3;
+Sub_UPDATE.c(379): warning:  #513-D: a value of type "void *" cannot be assigned to an entity of type "void (*)(void)"
+  	app_reset_handler = (void*) resethandler_address;
+Sub_UPDATE.c(360): warning:  #177-D: variable "app1"  was declared but never referenced
+  	uint32_t app1,app2,address;
+Sub_UPDATE.c(360): warning:  #177-D: variable "app2"  was declared but never referenced
+  	uint32_t app1,app2,address;
+Sub_UPDATE.c(392): warning:  #177-D: variable "uart"  was declared but never referenced
+  	u8 uart[100];
+Sub_UPDATE.c(462): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  	inviaSMS(&lastNumber[0],strlen(lastNumber),(u8*)"download finished",17);
+Sub_UPDATE.c(498): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(uart,"%x %x\n",progVar,address);
+Sub_UPDATE.c(499): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+Sub_UPDATE.c: 13 warnings, 0 errors
+compiling Sub_MySQL.c...
+Sub_MySQL.c(381): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaIntrusioneDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(383): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(383): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(384): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"/addIntrusion.php?user=");
+Sub_MySQL.c(384): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"/addIntrusion.php?user=");
+Sub_MySQL.c(385): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(385): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(386): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&psw=");
+Sub_MySQL.c(386): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&psw=");
+Sub_MySQL.c(387): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(387): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(389): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&serial=");
+Sub_MySQL.c(389): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&serial=");
+Sub_MySQL.c(390): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],&univoco[0],5);	
+Sub_MySQL.c(392): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&name=");
+Sub_MySQL.c(392): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&name=");
+Sub_MySQL.c(394): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaIntrusioneDB[strlen(stringaIntrusioneDB)] = identificativo[i];
+Sub_MySQL.c(397): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&time=%u",myTimeVar);  
+Sub_MySQL.c(397): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaIntrusioneDB[strlen(stringaIntrusioneDB)],"&time=%u",myTimeVar);  
+Sub_MySQL.c(427): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaMeasDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(429): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(429): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(430): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"/addMeasProfile.php?user=");
+Sub_MySQL.c(430): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"/addMeasProfile.php?user=");
+Sub_MySQL.c(431): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(431): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(432): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&psw=");
+Sub_MySQL.c(432): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&psw=");
+Sub_MySQL.c(433): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(433): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(435): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&serial=");
+Sub_MySQL.c(435): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&serial=");
+Sub_MySQL.c(436): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaMeasDB[strlen(stringaMeasDB)],&univoco[0],5);	
+Sub_MySQL.c(438): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&name=");
+Sub_MySQL.c(438): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&name=");
+Sub_MySQL.c(440): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaMeasDB[strlen(stringaMeasDB)] = identificativo[i];
+Sub_MySQL.c(443): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&time=%u&V1=%u&V2=%u&V3=%u&I1a=%d&I2a=%d&I3a=%d&I1b=%d&I2b=%d&I3b=%d&f1a=%d&f2a=%d&f3a=%d&f1b=%d&f2b=%d&f3b=%d&pf1a=%d&pf2a=%d&pf3a=%d&pf1b=%d&pf2b=%d&pf3b=%d&P1a=%d&P2a=%d&P3a=%d&P1b=%d&P2b=%d&P3b=%d&Q1a=%d&Q2a=%d&Q3a=%d&Q1b=%d&Q2b=%d&Q3b=%d",myTimeVar,V[0],V[1],V[2],I1meas[0],I1meas[1],I1meas[2],I2meas[0],I2meas[1],I2meas[2],phi1meas[0],phi1meas[1],phi1meas[2],phi2meas[0],phi2meas[1],phi2meas[2],cosphi1meas[0],cosphi1meas[1],cosphi1meas[2],cosphi2meas[0],cosphi2meas[1],cosphi2meas[2],P1meas[0],P1meas[1],P1meas[2],P2meas[0],P2meas[1],P2meas[2],Q1meas[0],Q1meas[1],Q1meas[2],Q2meas[0],Q2meas[1],Q2meas[2]);               
+Sub_MySQL.c(443): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaMeasDB[strlen(stringaMeasDB)],"&time=%u&V1=%u&V2=%u&V3=%u&I1a=%d&I2a=%d&I3a=%d&I1b=%d&I2b=%d&I3b=%d&f1a=%d&f2a=%d&f3a=%d&f1b=%d&f2b=%d&f3b=%d&pf1a=%d&pf2a=%d&pf3a=%d&pf1b=%d&pf2b=%d&pf3b=%d&P1a=%d&P2a=%d&P3a=%d&P1b=%d&P2b=%d&P3b=%d&Q1a=%d&Q2a=%d&Q3a=%d&Q1b=%d&Q2b=%d&Q3b=%d",myTimeVar,V[0],V[1],V[2],I1meas[0],I1meas[1],I1meas[2],I2meas[0],I2meas[1],I2meas[2],phi1meas[0],phi1meas[1],phi1meas[2],phi2meas[0],phi2meas[1],phi2meas[2],cosphi1meas[0],cosphi1meas[1],cosphi1meas[2],cosphi2meas[0],cosphi2meas[1],cosphi2meas[2],P1meas[0],P1meas[1],P1meas[2],P2meas[0],P2meas[1],P2meas[2],Q1meas[0],Q1meas[1],Q1meas[2],Q2meas[0],Q2meas[1],Q2meas[2]);               
+Sub_MySQL.c(470): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaLoadDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(472): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(472): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(473): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"/addLoadProfile.php?user=");
+Sub_MySQL.c(473): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"/addLoadProfile.php?user=");
+Sub_MySQL.c(474): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(474): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(475): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&psw=");
+Sub_MySQL.c(475): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&psw=");
+Sub_MySQL.c(476): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(476): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(478): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&serial=");
+Sub_MySQL.c(478): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&serial=");
+Sub_MySQL.c(479): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaLoadDB[strlen(stringaLoadDB)],&univoco[0],5);	
+Sub_MySQL.c(481): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&name=");
+Sub_MySQL.c(481): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&name=");
+Sub_MySQL.c(483): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaLoadDB[strlen(stringaLoadDB)] = identificativo[i];
+Sub_MySQL.c(486): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&time=%u&E1p1=%lu&E2p1=%lu&E3p1=%lu&E1p2=%lu&E2p2=%lu&E3p2=%lu&E1n1=%lu&E2n1=%lu&E3n1=%lu&E1n2=%lu&E2n2=%lu&E3n2=%lu&R1p1=%lu&R2p1=%lu&R3p1=%lu&R1p2=%lu&R2p2=%lu&R3p2=%lu&R1n1=%lu&R2n1=%lu&R3n1=%lu&R1n2=%lu&R2n2=%lu&R3n2=%lu",myTimeVar,E1p[0],E1p[1],E1p[2],E2p[0],E2p[1],E2p[2],E1n[0],E1n[1],E1n[2],E2n[0],E2n[1],E2n[2],R1p[0],R1p[1],R1p[2],R2p[0],R2p[1],R2p[2],R1n[0],R1n[1],R1n[2],R2n[0],R2n[1],R2n[2]);               
+Sub_MySQL.c(486): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaLoadDB[strlen(stringaLoadDB)],"&time=%u&E1p1=%lu&E2p1=%lu&E3p1=%lu&E1p2=%lu&E2p2=%lu&E3p2=%lu&E1n1=%lu&E2n1=%lu&E3n1=%lu&E1n2=%lu&E2n2=%lu&E3n2=%lu&R1p1=%lu&R2p1=%lu&R3p1=%lu&R1p2=%lu&R2p2=%lu&R3p2=%lu&R1n1=%lu&R2n1=%lu&R3n1=%lu&R1n2=%lu&R2n2=%lu&R3n2=%lu",myTimeVar,E1p[0],E1p[1],E1p[2],E2p[0],E2p[1],E2p[2],E1n[0],E1n[1],E1n[2],E2n[0],E2n[1],E2n[2],R1p[0],R1p[1],R1p[2],R2p[0],R2p[1],R2p[2],R1n[0],R1n[1],R1n[2],R2n[0],R2n[1],R2n[2]);               
+Sub_MySQL.c(517): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaGuastoDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(519): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(519): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(520): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"/addFault.php?user=");
+Sub_MySQL.c(520): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"/addFault.php?user=");
+Sub_MySQL.c(521): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(521): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(522): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&psw=");
+Sub_MySQL.c(522): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&psw=");
+Sub_MySQL.c(523): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(523): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(525): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&serial=");
+Sub_MySQL.c(525): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&serial=");
+Sub_MySQL.c(526): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaGuastoDB[strlen(stringaGuastoDB)],&univoco[0],5);	
+Sub_MySQL.c(528): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&name=");
+Sub_MySQL.c(528): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&name=");
+Sub_MySQL.c(530): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaGuastoDB[strlen(stringaGuastoDB)] = identificativo[i];
+Sub_MySQL.c(534): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&time=%u&I1a=%u&I2a=%u&I3a=%u&I1b=%u&I2b=%u&I3b=%u",myTimeVar,corrente[0],corrente[1],corrente[2],corrente[3],corrente[4],corrente[5]);  
+Sub_MySQL.c(534): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaGuastoDB[strlen(stringaGuastoDB)],"&time=%u&I1a=%u&I2a=%u&I3a=%u&I1b=%u&I2b=%u&I3b=%u",myTimeVar,corrente[0],corrente[1],corrente[2],corrente[3],corrente[4],corrente[5]);  
+Sub_MySQL.c(565): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaUnderDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(567): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(567): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(568): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"/addUnderVoltage.php?user=");
+Sub_MySQL.c(568): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"/addUnderVoltage.php?user=");
+Sub_MySQL.c(569): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(569): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(570): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&psw=");
+Sub_MySQL.c(570): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&psw=");
+Sub_MySQL.c(571): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(571): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(573): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&serial=");
+Sub_MySQL.c(573): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&serial=");
+Sub_MySQL.c(574): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaUnderDB[strlen(stringaUnderDB)],&univoco[0],5);	
+Sub_MySQL.c(576): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&name=");
+Sub_MySQL.c(576): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&name=");
+Sub_MySQL.c(578): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaUnderDB[strlen(stringaUnderDB)] = identificativo[i];
+Sub_MySQL.c(582): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
+Sub_MySQL.c(582): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaUnderDB[strlen(stringaUnderDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
+Sub_MySQL.c(612): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaOverDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(614): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(614): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(615): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"/addOverVoltage.php?user=");
+Sub_MySQL.c(615): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"/addOverVoltage.php?user=");
+Sub_MySQL.c(616): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(616): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(617): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&psw=");
+Sub_MySQL.c(617): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&psw=");
+Sub_MySQL.c(618): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(618): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(620): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&serial=");
+Sub_MySQL.c(620): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&serial=");
+Sub_MySQL.c(621): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaOverDB[strlen(stringaOverDB)],&univoco[0],5);	
+Sub_MySQL.c(623): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&name=");
+Sub_MySQL.c(623): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&name=");
+Sub_MySQL.c(625): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaOverDB[strlen(stringaOverDB)] = identificativo[i];
+Sub_MySQL.c(629): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
+Sub_MySQL.c(629): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaOverDB[strlen(stringaOverDB)],"&time=%u&V1=%u&V2=%u&V3=%u",myTimeVar,tensione[0],tensione[1],tensione[2]);  
+Sub_MySQL.c(659): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaNeutroStartDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(661): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(661): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(662): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"/addNeutralStart.php?user=");
+Sub_MySQL.c(662): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"/addNeutralStart.php?user=");
+Sub_MySQL.c(663): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(663): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(664): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&psw=");
+Sub_MySQL.c(664): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&psw=");
+Sub_MySQL.c(665): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(665): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(667): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&serial=");
+Sub_MySQL.c(667): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&serial=");
+Sub_MySQL.c(668): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],&univoco[0],5);	
+Sub_MySQL.c(670): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&name=");
+Sub_MySQL.c(670): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&name=");
+Sub_MySQL.c(672): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaNeutroStartDB[strlen(stringaNeutroStartDB)] = identificativo[i];
+Sub_MySQL.c(676): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&timeS=%u&d1s=%u&d2s=%u&d3s=%u",myTimeVar,diffStart[0],diffStart[1],diffStart[2]);  
+Sub_MySQL.c(676): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroStartDB[strlen(stringaNeutroStartDB)],"&timeS=%u&d1s=%u&d2s=%u&d3s=%u",myTimeVar,diffStart[0],diffStart[1],diffStart[2]);  
+Sub_MySQL.c(712): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaNeutroEndDB,"AT+HTTPPARA=\x22URL\x22,\x22");
+Sub_MySQL.c(714): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(714): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(715): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"/addNeutralEnd.php?user=");
+Sub_MySQL.c(715): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"/addNeutralEnd.php?user=");
+Sub_MySQL.c(716): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(716): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(717): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&psw=");
+Sub_MySQL.c(717): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&psw=");
+Sub_MySQL.c(718): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(718): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(720): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&serial=");
+Sub_MySQL.c(720): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&serial=");
+Sub_MySQL.c(721): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],&univoco[0],5);	
+Sub_MySQL.c(723): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&name=");
+Sub_MySQL.c(723): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&name=");
+Sub_MySQL.c(725): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaNeutroEndDB[strlen(stringaNeutroEndDB)] = identificativo[i];
+Sub_MySQL.c(728): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&timeM=%u&d1m=%u&d2m=%u&d3m=%u&timeE=%u&d1e=%u&d2e=%u&d3e=%u",timeMax, diffMax[0], diffMax[1], diffMax[2], myTimeVar, diffEnd[0], diffEnd[1], diffEnd[2]);  
+Sub_MySQL.c(728): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaNeutroEndDB[strlen(stringaNeutroEndDB)],"&timeM=%u&d1m=%u&d2m=%u&d3m=%u&timeE=%u&d1e=%u&d2e=%u&d3e=%u",timeMax, diffMax[0], diffMax[1], diffMax[2], myTimeVar, diffEnd[0], diffEnd[1], diffEnd[2]);  
+Sub_MySQL.c(754): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaRebootDB,"AT+HTTPPARA=\x22URL\x22,\x22");			
+Sub_MySQL.c(756): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(756): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&mySQL[0],strlen(mySQL));
+Sub_MySQL.c(757): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"/addReboot.php?user=");
+Sub_MySQL.c(757): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"/addReboot.php?user=");
+Sub_MySQL.c(758): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(758): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(759): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&psw=");
+Sub_MySQL.c(759): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&psw=");
+Sub_MySQL.c(760): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(760): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(762): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&serial=");
+Sub_MySQL.c(762): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&serial=");
+Sub_MySQL.c(763): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaRebootDB[strlen(stringaRebootDB)],&univoco[0],5);	
+Sub_MySQL.c(765): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&name=");
+Sub_MySQL.c(765): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&name=");
+Sub_MySQL.c(767): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaRebootDB[strlen(stringaRebootDB)] = identificativo[i];
+Sub_MySQL.c(771): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&time=%u",myTimeVar-5);  
+Sub_MySQL.c(771): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaRebootDB[strlen(stringaRebootDB)],"&time=%u",myTimeVar-5);  
+Sub_MySQL.c(799): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(stringaDebugDB,"AT+HTTPPARA=\x22URL\x22,\x22");	
+Sub_MySQL.c(801): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"http://a2atestmisure.altervista.org");
+Sub_MySQL.c(801): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"http://a2atestmisure.altervista.org");
+Sub_MySQL.c(802): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"/addDebug.php?user=");
+Sub_MySQL.c(802): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"/addDebug.php?user=");
+Sub_MySQL.c(803): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaDebugDB[strlen(stringaDebugDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(803): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaDebugDB[strlen(stringaDebugDB)],&userSQL[0],strlen(userSQL));
+Sub_MySQL.c(804): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&psw=");
+Sub_MySQL.c(804): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&psw=");
+Sub_MySQL.c(805): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaDebugDB[strlen(stringaDebugDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(805): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaDebugDB[strlen(stringaDebugDB)],&pwSQL[0],strlen(pwSQL));
+Sub_MySQL.c(807): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&serial=");
+Sub_MySQL.c(807): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&serial=");
+Sub_MySQL.c(808): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		copiaArray(&stringaDebugDB[strlen(stringaDebugDB)],&univoco[0],5);	
+Sub_MySQL.c(810): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&name=");
+Sub_MySQL.c(810): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&name=");
+Sub_MySQL.c(812): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  			stringaDebugDB[strlen(stringaDebugDB)] = identificativo[i];
+Sub_MySQL.c(816): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "const char *"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&time=%u&temp=%d&batt=%d&level=%d&char=%d",myTimeVar,temperatura,tensioneBint,batteryLevel,batteriaInCarica);  
+Sub_MySQL.c(816): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *restrict"
+  		sprintf(&stringaDebugDB[strlen(stringaDebugDB)],"&time=%u&temp=%d&batt=%d&level=%d&char=%d",myTimeVar,temperatura,tensioneBint,batteryLevel,batteriaInCarica);  
+Sub_MySQL.c(819): warning:  #1-D: last line of file ends without a newline
+  }
+Sub_MySQL.c: 191 warnings, 0 errors
+linking...
+Program Size: Code=125340 RO-data=4160 RW-data=976 ZI-data=32040  
+FromELF: creating hex file...
+"Firmware V3\Firmware_APP1.axf" - 0 Error(s), 661 Warning(s).
+Build Time Elapsed:  00:00:24

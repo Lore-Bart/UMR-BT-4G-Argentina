@@ -341,8 +341,13 @@ int mymain(void){
 		HAL_UART_Receive_DMA(&huart1,&rxTest[0],500); //inizializzo il DMA UART
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE); //avvio l'interrupt UART
 	
-	HAL_UART_Receive_DMA(&huart6,&rx4G[0],500); //inizializzo il DMA UART
-	__HAL_UART_ENABLE_IT(&huart6, UART_IT_IDLE); //avvio l'interrupt UART
+	if(HAL_UART_Receive_DMA(&huart6,&rx4G[0],500) == HAL_OK){
+		__HAL_UART_ENABLE_IT(&huart6, UART_IT_IDLE); //avvio l'interrupt UART
+	}
+	else{
+		/* Il main ritentera l'avvio senza lasciare USART6 in uno stato parziale. */
+		richiediRecuperoUART6();
+	}
 	
 
 			
@@ -375,6 +380,11 @@ int mymain(void){
 	
 	
 	while(1){//(riavvio == 0){
+		/*
+		 * Parsing e recupero della ricezione SIM7600 vengono eseguiti fuori
+		 * dall'interrupt, cosi le altre periferiche non vengono rallentate.
+		 */
+		gestisciRicezioneUART6();
 		
 		/*
 		 * Attivazione non bloccante della batteria. Tutte le altre
@@ -482,6 +492,11 @@ int mymain(void){
 			invia4G(uart);
 			HAL_Delay(200);
 			invia4G("\r");
+			/*
+			 * Il timeout puo essere causato anche da una DMA RX arrestata
+			 * o disallineata: il riavvio avverra nel giro main successivo.
+			 */
+			richiediRecuperoUART6();
 			if(databaseTxIsBusy() != 0){
 				databaseHttpError();
 			}
@@ -494,6 +509,12 @@ int mymain(void){
 			if(statoInternet == 2){
 				statoInternet = 1;
 			}
+
+			/*
+			 * Non avviare una nuova transazione AT nello stesso giro:
+			 * all'inizio del prossimo giro la DMA verra prima recuperata.
+			 */
+			continue;
 		}
 		
 		if(disattivaInternetFlag == 1 && statoModulo == 0){
