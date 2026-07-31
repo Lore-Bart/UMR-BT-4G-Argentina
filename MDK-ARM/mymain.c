@@ -425,6 +425,13 @@ int mymain(void){
 		 * mancanza rete.
 		 */
 		gestisciIngressoLowPower();
+
+		/*
+		 * Il timeout di autonomia deve avanzare indipendentemente dal
+		 * controllo periodico della tensione, che a batteria e ogni 30 s.
+		 */
+		gestisciInterruzioneReteCarica();
+		gestisciTimeoutFunzionamentoBatteria();
 		
 		//sovracorrenti
 		tick = HAL_GetTick();

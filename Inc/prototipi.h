@@ -34,7 +34,7 @@
  * - 5 minuti e il valore applicato alla prima installazione del firmware
  *   o quando in FRAM non e presente una configurazione valida.
  */
-#define BAT_BACKUP_TIME_DEFAULT_MIN       5U
+#define BAT_BACKUP_TIME_DEFAULT_MIN       2U
 #define BAT_BACKUP_TIME_MAX_MIN           60U
 
 /*
@@ -53,13 +53,13 @@
 /*
  * Intervalli fra i controlli periodici della tensione batteria:
  * - con alimentatore presente resta il controllo ogni 15 secondi;
- * - con alimentatore assente il controllo viene diradato a 120 secondi
+ * - con alimentatore assente il controllo viene diradato a 30 secondi
  *   per ridurre il consumo introdotto dal circuito di misura.
  *
  * I valori sono espressi in secondi e devono essere maggiori di zero.
  */
 #define BAT_CHECK_AC_INTERVAL_SEC          15U
-#define BAT_CHECK_BACKUP_INTERVAL_SEC      120U
+#define BAT_CHECK_BACKUP_INTERVAL_SEC      30U
 
 /*
  * Ritardo fra l'accodamento immediato dell'evento di sovracorrente al
@@ -254,6 +254,8 @@ void ultimoGuasto(u8 *outBuf);
 void downloadIntrusioni(void);
 u8 multiplocinque(int dato);
 u8 controllaBatteria(void);
+void gestisciInterruzioneReteCarica(void);
+void gestisciTimeoutFunzionamentoBatteria(void);
 u32 acquisizioneADC(int channel);
 void controlloAntifurtoProva(void);
 void writeNFC16(uint8_t *inBuf, uint8_t size, uint8_t *offset);

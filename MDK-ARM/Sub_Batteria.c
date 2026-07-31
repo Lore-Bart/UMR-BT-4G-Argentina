@@ -577,7 +577,7 @@ long temperatura = 0;
  *   rete e temperatura valida. Intervallo 1...255 (contatore u8);
  *   0 non deve essere usato.
  */
-#define BAT_TIMEOUT_RESTART_DROP_MV       200U
+#define BAT_TIMEOUT_RESTART_DROP_MV       100U
 #define BAT_TIMEOUT_RESTART_CONFIRM_COUNT 3U
 
 /*
@@ -686,7 +686,6 @@ static u32 tickInizioFunzionamentoBatteria = 0;
 
 static u8 statoReteBatteriaInizializzato = 0;
 static u8 alimentatorePrecedenteBatteria = 0;
-static u8 sessioneCaricaInterrottaDaRete = 0;
 static u32 tickInizioInterruzioneRete = 0;
 
 u8 calibrazioneBatteriaRichiesta = 0;
@@ -1344,8 +1343,6 @@ void resetFaultCaricaBatteria(void)
     tempoTopCaricaOn_s = 0;
     tensioneArrestoTimeout_mV = 0;
     contatoreRiarmoTimeout = 0;
-    sessioneCaricaInterrottaDaRete = 0U;
-
     resetControlloPlateau();
     resetVerificaRiposoPlateau();
     resetControlloStalloCarica();
@@ -2112,6 +2109,164 @@ void gestisciCalibrazioneBatteria(void)
     calibrazioneBatteriaAttiva = 0U;
 }
 
+/*
+ * Gestisce il tempo massimo di funzionamento senza rete indipendentemente
+ * dalla misura ADC della batteria.
+ *
+ * Deve essere richiamata continuamente dal main loop:
+ * - il timer parte appena alimentatore diventa 0;
+ * - il ritorno della rete azzera il timer;
+ * - il valore 0 disabilita il timeout;
+ * - alla scadenza apre immediatamente PE15 e mantiene il relativo latch.
+ */
+void gestisciTimeoutFunzionamentoBatteria(void)
+{
+    u32 tickAttuale = HAL_GetTick();
+    char uart[120];
+
+    if(alimentatore != 0)
+    {
+        timerFunzionamentoBatteriaAttivo = 0U;
+        tickInizioFunzionamentoBatteria = 0U;
+
+        if(spegnimentoTempoBatteriaAttivo != 0U)
+        {
+            /*
+             * Evita che il lungo intervallo di spegnimento venga
+             * conteggiato nei timer della nuova sessione di carica.
+             */
+            ultimoTickBatteria = tickAttuale;
+            spegnimentoTempoBatteriaAttivo = 0U;
+        }
+        return;
+    }
+
+    if(spegnimentoTempoBatteriaAttivo != 0U)
+    {
+        statoCaricaBatteria = BAT_STATE_NO_SUPPLY;
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        batteriaInCarica = 0U;
+        return;
+    }
+
+    if(tempoSpegnimentoBatteriaMinuti == 0U)
+    {
+        timerFunzionamentoBatteriaAttivo = 0U;
+        tickInizioFunzionamentoBatteria = 0U;
+        return;
+    }
+
+    if(timerFunzionamentoBatteriaAttivo == 0U)
+    {
+        tickInizioFunzionamentoBatteria = tickAttuale;
+        timerFunzionamentoBatteriaAttivo = 1U;
+        return;
+    }
+
+    if((tickAttuale - tickInizioFunzionamentoBatteria) <
+       ((u32)tempoSpegnimentoBatteriaMinuti * 60UL * 1000UL))
+    {
+        return;
+    }
+
+    spegnimentoTempoBatteriaAttivo = 1U;
+
+    snprintf(
+        uart,
+        sizeof(uart),
+        "[BAT] Backup time expired: %lus, disconnecting PE15\r\n",
+        (unsigned long)tempoSpegnimentoBatteriaMinuti * 60UL
+    );
+    HAL_UART_Transmit(
+        &huart1,
+        (u8 *)uart,
+        strlen(uart),
+        300
+    );
+
+    statoCaricaBatteria = BAT_STATE_NO_SUPPLY;
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+    batteriaInCarica = 0U;
+}
+
+/*
+ * Rileva i fronti dell'alimentatore indipendentemente dalla misura ADC.
+ *
+ * Dopo un'assenza rete sufficientemente lunga azzera sempre il budget
+ * temporale della carica, anche se sul fronte di discesa la sessione non
+ * era attiva. Fault e stato generale non vengono modificati.
+ */
+void gestisciInterruzioneReteCarica(void)
+{
+    u32 tickAttuale = HAL_GetTick();
+    u8 alimentatoreAttuale = (alimentatore != 0) ? 1U : 0U;
+
+    if(statoReteBatteriaInizializzato == 0U)
+    {
+        alimentatorePrecedenteBatteria = alimentatoreAttuale;
+        statoReteBatteriaInizializzato = 1U;
+
+        if(alimentatoreAttuale == 0U)
+        {
+            tickInizioInterruzioneRete = tickAttuale;
+        }
+        return;
+    }
+
+    if(alimentatorePrecedenteBatteria == alimentatoreAttuale)
+    {
+        return;
+    }
+
+    if(alimentatoreAttuale == 0U)
+    {
+        /* Fronte rete presente -> rete assente. */
+        tickInizioInterruzioneRete = tickAttuale;
+    }
+    else
+    {
+        /* Fronte rete assente -> rete presente. */
+        u32 durataInterruzioneRete_ms =
+            tickAttuale - tickInizioInterruzioneRete;
+
+        if(durataInterruzioneRete_ms >=
+           BAT_CHARGE_SESSION_RESET_OFF_TIME_MS)
+        {
+            char uart[120];
+
+            tempoTotaleCaricaOn_s = 0U;
+            tempoTopCaricaOn_s = 0U;
+            contatoreAvvio = 0U;
+            contatoreArresto = 0U;
+            contatoreDutyCycle = 0U;
+            resetControlloPlateau();
+            resetVerificaRiposoPlateau();
+            resetControlloStalloCarica();
+
+            snprintf(
+                uart,
+                sizeof(uart),
+                "[BAT] Charge timers reset: AC off for %lus\r\n",
+                (unsigned long)(durataInterruzioneRete_ms / 1000UL)
+            );
+            HAL_UART_Transmit(
+                &huart1,
+                (u8 *)uart,
+                strlen(uart),
+                300
+            );
+        }
+
+        tickInizioInterruzioneRete = 0U;
+    }
+
+    alimentatorePrecedenteBatteria = alimentatoreAttuale;
+}
+
 u8 controllaBatteria(void)
 {
     BatteryAdcMeasurement_t misuraADC;
@@ -2152,129 +2307,13 @@ u8 controllaBatteria(void)
     tickAttuale = HAL_GetTick();
 
     /*
-     * Rileva i fronti dell'alimentatore per distinguere una breve
-     * interruzione da una vera fase di funzionamento a batteria.
-     *
-     * Viene memorizzato se la sessione era attiva sul fronte di discesa.
-     * Al ritorno della rete, dopo il tempo minimo configurato, si assegna
-     * alla sessione un nuovo budget temporale senza alterare fault o stato.
-     */
-    if(statoReteBatteriaInizializzato == 0U)
-    {
-        alimentatorePrecedenteBatteria =
-            (alimentatore != 0) ? 1U : 0U;
-        statoReteBatteriaInizializzato = 1U;
-
-        if(alimentatorePrecedenteBatteria == 0U)
-        {
-            tickInizioInterruzioneRete = tickAttuale;
-            sessioneCaricaInterrottaDaRete =
-                (sessioneCaricaAttiva != 0U) ? 1U : 0U;
-        }
-    }
-    else if(alimentatorePrecedenteBatteria !=
-            ((alimentatore != 0) ? 1U : 0U))
-    {
-        if(alimentatore == 0)
-        {
-            /* Fronte rete presente -> rete assente. */
-            tickInizioInterruzioneRete = tickAttuale;
-            sessioneCaricaInterrottaDaRete =
-                (sessioneCaricaAttiva != 0U) ? 1U : 0U;
-        }
-        else
-        {
-            /* Fronte rete assente -> rete presente. */
-            u32 durataInterruzioneRete_ms =
-                tickAttuale - tickInizioInterruzioneRete;
-
-            if(sessioneCaricaInterrottaDaRete != 0U &&
-               durataInterruzioneRete_ms >=
-                   BAT_CHARGE_SESSION_RESET_OFF_TIME_MS)
-            {
-                tempoTotaleCaricaOn_s = 0U;
-                tempoTopCaricaOn_s = 0U;
-                contatoreAvvio = 0U;
-                contatoreArresto = 0U;
-                contatoreDutyCycle = 0U;
-                resetControlloPlateau();
-                resetVerificaRiposoPlateau();
-                resetControlloStalloCarica();
-
-                snprintf(
-                    uart,
-                    sizeof(uart),
-                    "[BAT] Charge timers reset: AC off for %lus\r\n",
-                    (unsigned long)(durataInterruzioneRete_ms / 1000UL)
-                );
-
-                HAL_UART_Transmit(
-                    &huart1,
-                    (u8 *)uart,
-                    strlen(uart),
-                    300
-                );
-            }
-
-            sessioneCaricaInterrottaDaRete = 0U;
-            tickInizioInterruzioneRete = 0U;
-        }
-
-        alimentatorePrecedenteBatteria =
-            (alimentatore != 0) ? 1U : 0U;
-    }
-
-    /*
-     * Il ritorno dell'alimentatore:
-     * - rimuove il latch di sottotensione;
-     * - annulla il timer del funzionamento a batteria;
-     * - consente a PE15 di essere ricollegato, salvo protezioni termiche.
+     * Il ritorno dell'alimentatore rimuove il latch di sottotensione.
+     * Il timer di funzionamento a batteria viene invece gestito
+     * continuamente da gestisciTimeoutFunzionamentoBatteria().
      */
     if(alimentatore != 0)
     {
         disconnessioneSottotensioneAttiva = 0U;
-        timerFunzionamentoBatteriaAttivo = 0U;
-        tickInizioFunzionamentoBatteria = 0U;
-
-        if(spegnimentoTempoBatteriaAttivo != 0U)
-        {
-            /*
-             * Evita che il lungo intervallo di spegnimento venga
-             * conteggiato nei timer della nuova sessione di carica.
-             */
-            ultimoTickBatteria = tickAttuale;
-            spegnimentoTempoBatteriaAttivo = 0U;
-        }
-    }
-    else
-    {
-        if(timerFunzionamentoBatteriaAttivo == 0U)
-        {
-            tickInizioFunzionamentoBatteria = tickAttuale;
-            timerFunzionamentoBatteriaAttivo = 1U;
-        }
-        else if(tempoSpegnimentoBatteriaMinuti != 0U &&
-                spegnimentoTempoBatteriaAttivo == 0U &&
-                (tickAttuale - tickInizioFunzionamentoBatteria) >=
-                    ((u32)tempoSpegnimentoBatteriaMinuti *
-                     60UL * 1000UL))
-        {
-            spegnimentoTempoBatteriaAttivo = 1U;
-
-            snprintf(
-                uart,
-                sizeof(uart),
-                "[BAT] Backup time expired: %lus, disconnecting PE15\r\n",
-                (unsigned long)tempoSpegnimentoBatteriaMinuti * 60UL
-            );
-
-            HAL_UART_Transmit(
-                &huart1,
-                (u8 *)uart,
-                strlen(uart),
-                300
-            );
-        }
     }
 
     /*

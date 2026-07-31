@@ -654,7 +654,7 @@ void RTCpolling(void){
 		
 			/*
 			 * Con rete presente manteniamo il controllo ogni 15 secondi.
-			 * A batteria usiamo invece un contatore dedicato di 120 secondi:
+			 * A batteria usiamo invece un contatore dedicato di 30 secondi:
 			 * non possiamo basarci soltanto sui secondi dell'RTC, che
 			 * ripartono da zero ogni minuto.
 			 */
