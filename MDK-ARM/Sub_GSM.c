@@ -87,6 +87,7 @@ u8 userSQL[30]; //vecchio 20
 u8 pwSQL[30]; //vecchio 20
 u8 userAPN[30];
 u8 pwAPN[30];
+u8 apnAuthType = APN_AUTH_NONE;
 
 
 
@@ -1178,16 +1179,41 @@ void connettiInternet(void){
 	
 	u8 setAPN[100] = "AT+CGDCONT=1,\x22IP\x22,\x22";
 	u8 setAPN3[2] = "\x22\r";
+	u8 setAuth[100];
 	u8 taskTCP[13] = "AT+CGACT=1,1\r";
 	u8 connessione[11] = "AT+NETOPEN\r";
+	int lunghezzaAuth;
 	
 	copiaArray(&setAPN[19],&APN[0],strlen(APN));
 	copiaArray(&setAPN[strlen(setAPN)],&setAPN3[0],2);
+
+	/*
+	 * +CGAUTH e' il comando SIMCom per l'autenticazione dell'APN.
+	 * Lo inviamo anche per il tipo NONE: in questo modo una configurazione
+	 * pubblica cancella esplicitamente eventuali credenziali rimaste nel
+	 * contesto PDP del modulo dopo l'uso di un APN privato.
+	 * L'ordine richiesto dal SIM7600 e' password, username.
+	 */
+	if(apnAuthType == APN_AUTH_NONE){
+		lunghezzaAuth = snprintf((char*)setAuth, sizeof(setAuth),
+			"AT+CGAUTH=1,0\r");
+	}
+	else{
+		lunghezzaAuth = snprintf((char*)setAuth, sizeof(setAuth),
+			"AT+CGAUTH=1,%u,\x22%s\x22,\x22%s\x22\r",
+			(unsigned int)apnAuthType,
+			(char*)pwAPN,
+			(char*)userAPN);
+	}
 	
 	statoModulo++; inviaDebug("statoModulo++\n");
 	
 	HAL_UART_Transmit(&huart6,&setAPN[0],strlen(setAPN),1000);
 	HAL_Delay(100);
+	if(lunghezzaAuth > 0 && lunghezzaAuth < (int)sizeof(setAuth)){
+		HAL_UART_Transmit(&huart6,&setAuth[0],lunghezzaAuth,1000);
+		HAL_Delay(100);
+	}
 	HAL_UART_Transmit(&huart6,&taskTCP[0],13,1000);
 	HAL_Delay(100);
 	statoInternet = 2;
@@ -1197,37 +1223,9 @@ void connettiInternet(void){
 	
 }
 
-void connettiInternet5(void){ //con credenziali
-	
-	u8 setAPN[150] = "AT+QICSGP=1,\x22";
-	u8 setAPN3[3] = "\x22,\x22";
-	u8 setAPN4[3] = "\x22,\x22";
-	u8 setAPN5[5] = "\x22,0\r\0";
-
-	
-	u8 taskTCP[12] = "AT+QIREGAPP\r";
-	u8 connessione[9] = "AT+QIACT\r";
-	u8 richiestaIP[11] = "AT+QILOCIP\r";
-	
-	copiaArray(&setAPN[13],&APN[0],strlen(APN));
-	copiaArray(&setAPN[strlen(setAPN)],&setAPN3[0],3);
-	copiaArray(&setAPN[strlen(setAPN)],&userAPN[0],strlen(userAPN));
-	copiaArray(&setAPN[strlen(setAPN)],&setAPN4[0],3);
-	copiaArray(&setAPN[strlen(setAPN)],&pwAPN[0],strlen(pwAPN));
-	copiaArray(&setAPN[strlen(setAPN)],&setAPN5[0],5);
-
-	
-	HAL_UART_Transmit(&huart1,&setAPN[0],strlen(setAPN),1000);
-	HAL_UART_Transmit(&huart6,&setAPN[0],strlen(setAPN),1000);
-	HAL_Delay(200);
-	HAL_UART_Transmit(&huart1,&taskTCP[0],12,1000);
-	HAL_UART_Transmit(&huart6,&taskTCP[0],12,1000);
-	HAL_Delay(200);
-	statoInternet = 2;
-	statoModulo = 2;
-	HAL_UART_Transmit(&huart1,&connessione[0],9,1000);
-	HAL_UART_Transmit(&huart6,&connessione[0],9,1000);
-	
+void connettiInternet5(void){
+	/* Funzione di test legacy: usa ora la sequenza SIM7600 corretta. */
+	connettiInternet();
 }
 
 
@@ -2363,7 +2361,6 @@ void inviaSMSprova(void){
 	HAL_UART_Transmit(&huart6,&command[0],strlen((char *)command),1000);
 	//HAL_Delay(10);
 }
-
 
 
 

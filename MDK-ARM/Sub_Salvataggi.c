@@ -697,6 +697,15 @@ void salvataggio(void){
 	
 	u8 salvataggioNormale = 0;
 
+	/*
+	 * Nel secondo in cui deve avvenire il cambio CET/CEST non prepariamo
+	 * profili con il vecchio orario. Il main richiamera questa funzione
+	 * immediatamente dopo avere corretto l'RTC.
+	 */
+	if(cambioOraLegaleEuropeaInAttesa() != 0U){
+		return;
+	}
+
 	if(alimentatore == 0 || cancellaLoad != 0 || cancellaMeas != 0){
 		return;
 	}

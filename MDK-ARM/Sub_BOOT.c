@@ -144,6 +144,7 @@ extern u16 timeCarica;
 
 extern u8 userAPN[30];
 extern u8 pwAPN[30];
+extern u8 apnAuthType;
 extern u8 retePrivata;
 extern u32 sogliaI;
 u8 sogliaPers = 0;
@@ -578,7 +579,12 @@ void avvioSistema(void){
 		//ora legale
 		indirizzo[1] = 68;
 		ReadArrayFram(&data[0],&indirizzo[0],9);
-		DSTon = 0; //Argentina: nessuna ora legale
+		/*
+		 * La vecchia configurazione variabile resta leggibile per compatibilita,
+		 * ma l'abilitazione della nuova regola europea e stabilita unicamente
+		 * dalla define EUROPEAN_DST_ENABLED.
+		 */
+		DSTon = EUROPEAN_DST_ENABLED;
 		DSThourStart = data[1]; DSTdayStart = data[2]; DSTweekStart = data[3]; DSTmonthStart = data[4];
 		DSThourStop = data[5]; DSTdayStop = data[6]; DSTweekStop = data[7]; DSTmonthStop = data[8];
 		//coordinate
@@ -648,6 +654,40 @@ void avvioSistema(void){
 		ReadArrayFram(&userSQL[0],&indirizzo[0],30);
 		indirizzo[1] = 181; //vecchio 101
 		ReadArrayFram(&pwSQL[0],&indirizzo[0],30);
+
+		/*
+		 * Configurazione dell'autenticazione PDP per il SIM7600.
+		 * In assenza del marcatore importiamo le vecchie credenziali SMS,
+		 * se presenti, usando PAP/CHAP automatico; altrimenti il comportamento
+		 * storico resta invariato (APN pubblico, nessuna autenticazione).
+		 */
+		indirizzo[0] = APN_AUTH_FRAM_PAGE;
+		indirizzo[1] = APN_AUTH_FRAM_OFFSET;
+		ReadArrayFram(&data[0],&indirizzo[0],
+			2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+
+		if(data[0] == APN_AUTH_FRAM_MARKER &&
+		   data[1] <= APN_AUTH_PAP_OR_CHAP){
+			apnAuthType = data[1];
+			copiaArray(userAPN,&data[2],APN_AUTH_USER_SIZE);
+			copiaArray(pwAPN,&data[2 + APN_AUTH_USER_SIZE],
+				APN_AUTH_PASSWORD_SIZE);
+			userAPN[APN_AUTH_USER_SIZE - 1U] = 0;
+			pwAPN[APN_AUTH_PASSWORD_SIZE - 1U] = 0;
+		}
+		else{
+			apnAuthType = retePrivata ? APN_AUTH_PAP_OR_CHAP : APN_AUTH_NONE;
+			/* Le vecchie aree FRAM potevano non contenere il terminatore. */
+			userAPN[APN_AUTH_USER_SIZE - 1U] = 0;
+			pwAPN[APN_AUTH_PASSWORD_SIZE - 1U] = 0;
+			data[0] = APN_AUTH_FRAM_MARKER;
+			data[1] = apnAuthType;
+			copiaArray(&data[2],userAPN,APN_AUTH_USER_SIZE);
+			copiaArray(&data[2 + APN_AUTH_USER_SIZE],pwAPN,
+				APN_AUTH_PASSWORD_SIZE);
+			saveArrayFram(&data[0],&indirizzo[0],
+				2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+		}
 		
 		//numero device lo sposto qui 2 121
 		indirizzo[1] = 211; //vecchio 121
@@ -768,6 +808,14 @@ void avvioSistema(void){
 		}
 		
 	}
+
+	/*
+	 * Inizializza lo stato persistente soltanto dopo avere concluso tutte
+	 * le letture della FRAM. Se il firmware e stato appena aggiornato, la
+	 * prima inizializzazione registra lo stato dedotto dall'ora locale senza
+	 * spostare l'RTC.
+	 */
+	inizializzaGestioneOraLegaleEuropea();
 
 }
 

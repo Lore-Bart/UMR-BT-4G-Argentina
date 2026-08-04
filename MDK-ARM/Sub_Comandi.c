@@ -131,6 +131,9 @@ extern u8 APN[50];
 extern u8 mySQL[100];
 extern u8 userSQL[30];
 extern u8 pwSQL[30];
+extern u8 userAPN[APN_AUTH_USER_SIZE];
+extern u8 pwAPN[APN_AUTH_PASSWORD_SIZE];
+extern u8 apnAuthType;
 
 extern u8 disattivaInternetFlag;
 extern u8 statoModulo;
@@ -710,6 +713,16 @@ void eseguiComandoBT(uint8_t *messaggio){
 					sprintf(uart,"00");
 					HAL_UART_Transmit(&huart2,uart,2,100);
 				}
+
+				/*
+				 * Estensione della risposta C54 (accodata al formato storico):
+				 * tipo autenticazione ASCII, username 30 byte, password 30 byte.
+				 * Le credenziali non vengono mai stampate sulla seriale di debug.
+				 */
+				uart[0] = (u8)('0' + apnAuthType);
+				HAL_UART_Transmit(&huart2,uart,1,100);
+				HAL_UART_Transmit(&huart2,userAPN,APN_AUTH_USER_SIZE,100);
+				HAL_UART_Transmit(&huart2,pwAPN,APN_AUTH_PASSWORD_SIZE,100);
 				break;
 			case 0x55: //visualizza soglie
 				/*
@@ -813,6 +826,86 @@ void eseguiComandoBT(uint8_t *messaggio){
 					addressFram[0] = BAT_BACKUP_TIME_FRAM_PAGE;
 					addressFram[1] = BAT_BACKUP_TIME_FRAM_OFFSET;
 					saveArrayFram(&data[0],&addressFram[0],2);
+					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				}
+				else{
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+				}
+				break;
+
+			case 0x64: //imposta username autenticazione APN
+				i = pwOff + 2;
+				a = 0;
+				while(messaggio[i] != 0 && a < APN_AUTH_TEXT_MAX_LENGTH){
+					/* Evita virgolette e caratteri di controllo nei comandi AT. */
+					if(messaggio[i] < 0x20U || messaggio[i] > 0x7EU ||
+					   messaggio[i] == '\x22'){
+						break;
+					}
+					userAPN[a++] = messaggio[i++];
+				}
+				if(messaggio[i] != 0){
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+					break;
+				}
+				while(a < APN_AUTH_USER_SIZE){
+					userAPN[a++] = 0;
+				}
+				data[0] = APN_AUTH_FRAM_MARKER;
+				data[1] = apnAuthType;
+				copiaArray(&data[2],userAPN,APN_AUTH_USER_SIZE);
+				copiaArray(&data[2 + APN_AUTH_USER_SIZE],pwAPN,
+					APN_AUTH_PASSWORD_SIZE);
+				addressFram[0] = APN_AUTH_FRAM_PAGE;
+				addressFram[1] = APN_AUTH_FRAM_OFFSET;
+				saveArrayFram(&data[0],&addressFram[0],
+					2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				break;
+
+			case 0x65: //imposta password autenticazione APN
+				i = pwOff + 2;
+				a = 0;
+				while(messaggio[i] != 0 && a < APN_AUTH_TEXT_MAX_LENGTH){
+					/* Evita virgolette e caratteri di controllo nei comandi AT. */
+					if(messaggio[i] < 0x20U || messaggio[i] > 0x7EU ||
+					   messaggio[i] == '\x22'){
+						break;
+					}
+					pwAPN[a++] = messaggio[i++];
+				}
+				if(messaggio[i] != 0){
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+					break;
+				}
+				while(a < APN_AUTH_PASSWORD_SIZE){
+					pwAPN[a++] = 0;
+				}
+				data[0] = APN_AUTH_FRAM_MARKER;
+				data[1] = apnAuthType;
+				copiaArray(&data[2],userAPN,APN_AUTH_USER_SIZE);
+				copiaArray(&data[2 + APN_AUTH_USER_SIZE],pwAPN,
+					APN_AUTH_PASSWORD_SIZE);
+				addressFram[0] = APN_AUTH_FRAM_PAGE;
+				addressFram[1] = APN_AUTH_FRAM_OFFSET;
+				saveArrayFram(&data[0],&addressFram[0],
+					2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+				break;
+
+			case 0x66: //imposta tipo autenticazione APN: carattere '0'...'3'
+				if(messaggio[pwOff+2] >= '0' && messaggio[pwOff+2] <= '3' &&
+				   messaggio[pwOff+3] == 0){
+					apnAuthType = messaggio[pwOff+2] - '0';
+					data[0] = APN_AUTH_FRAM_MARKER;
+					data[1] = apnAuthType;
+					copiaArray(&data[2],userAPN,APN_AUTH_USER_SIZE);
+					copiaArray(&data[2 + APN_AUTH_USER_SIZE],pwAPN,
+						APN_AUTH_PASSWORD_SIZE);
+					addressFram[0] = APN_AUTH_FRAM_PAGE;
+					addressFram[1] = APN_AUTH_FRAM_OFFSET;
+					saveArrayFram(&data[0],&addressFram[0],
+						2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
 					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				}
 				else{

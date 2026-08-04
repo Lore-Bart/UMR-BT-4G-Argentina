@@ -27,6 +27,56 @@
 #define BAT_BACKUP_TIME_FRAM_MARKER       0xA8U
 
 /*
+ * Configurazione dell'autenticazione PDP dell'APN per il SIM7600.
+ * I 62 byte occupati, dalla posizione 61 alla 122 della pagina 3, sono:
+ * marcatore, tipo autenticazione, username (30 byte), password (30 byte).
+ * Il marcatore permette di riconoscere una FRAM proveniente da firmware
+ * precedenti e di importare una sola volta le vecchie credenziali.
+ */
+#define APN_AUTH_FRAM_PAGE                3U
+#define APN_AUTH_FRAM_OFFSET              61U
+#define APN_AUTH_FRAM_MARKER              0xAAU
+#define APN_AUTH_NONE                     0U
+#define APN_AUTH_PAP                      1U
+#define APN_AUTH_CHAP                     2U
+#define APN_AUTH_PAP_OR_CHAP              3U
+#define APN_AUTH_USER_SIZE                30U
+#define APN_AUTH_PASSWORD_SIZE            30U
+#define APN_AUTH_TEXT_MAX_LENGTH           (APN_AUTH_USER_SIZE - 1U)
+
+/*
+ * Gestione automatica dell'ora legale europea per RTC mantenuto in ora
+ * locale (CET/CEST):
+ * - 0 mantiene il comportamento storico del firmware Argentina e non
+ *   modifica mai l'RTC per l'ora legale;
+ * - 1 porta l'orologio dalle 02:00 alle 03:00 l'ultima domenica di marzo
+ *   e dalle 03:00 alle 02:00 l'ultima domenica di ottobre.
+ *
+ * Il timestamp ricevuto dai comandi continua a essere interpretato come
+ * ora locale codificata in formato epoch: quando viene impostato non viene
+ * quindi applicata alcuna correzione aggiuntiva.
+ *
+ * Sono ammessi esclusivamente i valori 0 e 1.
+ */
+#define EUROPEAN_DST_ENABLED               0U
+
+#if (EUROPEAN_DST_ENABLED != 0U) && (EUROPEAN_DST_ENABLED != 1U)
+#error "EUROPEAN_DST_ENABLED deve valere 0 oppure 1"
+#endif
+
+/*
+ * Stato persistente dell'ora legale. Il marcatore consente di riconoscere
+ * dispositivi aggiornati da firmware precedenti senza spostare l'orologio
+ * alla prima accensione. Gli offset 59 e 60 della pagina 3 sono successivi
+ * alle altre impostazioni attualmente presenti nella stessa pagina.
+ */
+#define EUROPEAN_DST_FRAM_PAGE             3U
+#define EUROPEAN_DST_FRAM_OFFSET           59U
+#define EUROPEAN_DST_FRAM_MARKER           0xA9U
+#define EUROPEAN_DST_STANDARD              0U
+#define EUROPEAN_DST_SUMMER                1U
+
+/*
  * Tempo di funzionamento massimo senza rete:
  * - valore memorizzato e usato in minuti;
  * - 0 disabilita lo spegnimento automatico temporizzato;
@@ -139,6 +189,9 @@ uint8_t WhatWeekDay(RTC_DateTypeDef data);
 void sethour(uint32_t A);
 void estremiDST(void);
 void UpdateTime(void);
+void inizializzaGestioneOraLegaleEuropea(void);
+u8 gestisciOraLegaleEuropea(void);
+u8 cambioOraLegaleEuropeaInAttesa(void);
 void copiaArray(uint8_t *OutBuf, uint8_t *InBuf, int size);
 void saveArrayFram(uint8_t *data,uint8_t *address,uint16_t size);
 void ReadArrayFram(uint8_t *OutBuf,uint8_t *address,uint16_t size);

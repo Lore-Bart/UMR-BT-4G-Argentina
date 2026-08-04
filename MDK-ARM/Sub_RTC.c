@@ -75,6 +75,12 @@ u8 DSTweekStop = 0;
 u8 DSTmonthStop = 0;
 u8 DSThourStop = 0;
 
+/* Stato della nuova gestione europea dell'RTC locale. */
+#if EUROPEAN_DST_ENABLED == 1U
+static u8 statoOraLegaleEuropea = EUROPEAN_DST_STANDARD;
+static u8 statoOraLegaleEuropeaValido = 0U;
+#endif
+
 //soglie
 extern u16 sogliaNeutro;
 
@@ -531,7 +537,8 @@ void RTC_WKUP_IRQHandler(void)
 	}
 	
 	//sprintf(uart,"netcount %d\n", netCount);
-	//inviaDebug(uart);
+	//inviaDebug(password);
+
 	
 	if(statoModulo != 0 && timerModuloESC != 0 && avvioConcluso == 1){
 		timerModuloESC--;
@@ -1060,6 +1067,308 @@ void UpdateTime(void){
 	secondiLoad++;
 	secondiMeas++;
 	
+}
+
+#if EUROPEAN_DST_ENABLED == 1U
+
+/*
+ * Restituisce il giorno della settimana senza dipendere dalla timezone
+ * della libreria C: 0 = domenica, 1 = lunedi, ... 6 = sabato.
+ */
+static u8 giornoSettimanaGregoriano(u16 anno, u8 mese, u8 giorno){
+	static const u8 offsetMese[12] = {0U,3U,2U,5U,0U,3U,5U,1U,4U,6U,2U,4U};
+	u32 risultato;
+
+	if(mese < 3U){
+		anno--;
+	}
+
+	risultato = (u32)anno + (u32)(anno / 4U) - (u32)(anno / 100U) +
+		(u32)(anno / 400U) + (u32)offsetMese[mese - 1U] + (u32)giorno;
+
+	return (u8)(risultato % 7U);
+}
+
+static u8 ultimaDomenicaMese(u8 annoRtc, u8 mese){
+	u8 giorno = 31U;
+	u16 anno = (u16)annoRtc + 2000U;
+
+	while(giornoSettimanaGregoriano(anno,mese,giorno) != 0U){
+		giorno--;
+	}
+
+	return giorno;
+}
+
+static u8 giorniNelMeseRtc(u8 annoRtc, u8 mese){
+	static const u8 giorniMese[12] = {
+		31U,28U,31U,30U,31U,30U,31U,31U,30U,31U,30U,31U
+	};
+	u8 giorni = giorniMese[mese - 1U];
+
+	if(mese == 2U && ((annoRtc % 4U) == 0U)){
+		giorni++;
+	}
+
+	return giorni;
+}
+
+/* Sposta l'RTC locale di una sola ora, gestendo anche giorno/mese/anno. */
+static void spostaRtcLocaleUnOra(u8 avanti){
+	if(avanti != 0U){
+		if(currentTime.Hours < 23U){
+			currentTime.Hours++;
+		}
+		else{
+			currentTime.Hours = 0U;
+			if(currentDate.Date < giorniNelMeseRtc(currentDate.Year,currentDate.Month)){
+				currentDate.Date++;
+			}
+			else{
+				currentDate.Date = 1U;
+				if(currentDate.Month < 12U){
+					currentDate.Month++;
+				}
+				else{
+					currentDate.Month = 1U;
+					currentDate.Year++;
+				}
+			}
+		}
+	}
+	else{
+		if(currentTime.Hours > 0U){
+			currentTime.Hours--;
+		}
+		else{
+			currentTime.Hours = 23U;
+			if(currentDate.Date > 1U){
+				currentDate.Date--;
+			}
+			else{
+				if(currentDate.Month > 1U){
+					currentDate.Month--;
+				}
+				else{
+					currentDate.Month = 12U;
+					currentDate.Year--;
+				}
+				currentDate.Date = giorniNelMeseRtc(
+					currentDate.Year,
+					currentDate.Month
+				);
+			}
+		}
+	}
+
+	/* HAL usa 1=lunedi ... 7=domenica. */
+	currentDate.WeekDay = giornoSettimanaGregoriano(
+		(u16)currentDate.Year + 2000U,
+		currentDate.Month,
+		currentDate.Date
+	);
+	if(currentDate.WeekDay == 0U){
+		currentDate.WeekDay = 7U;
+	}
+
+	HAL_RTC_SetDate(&hrtc,&currentDate,RTC_FORMAT_BIN);
+	HAL_RTC_SetTime(&hrtc,&currentTime,RTC_FORMAT_BIN);
+}
+
+/*
+ * Determina lo stato previsto usando direttamente l'ora locale contenuta
+ * nell'RTC. Nell'ora 02:00-02:59 dell'ultima domenica di ottobre esistono
+ * due rappresentazioni possibili; se disponibile, lo stato persistente
+ * distingue la prima occorrenza (legale) dalla seconda (solare).
+ */
+static u8 statoOraLegalePrevisto(RTC_DateTypeDef data,
+	RTC_TimeTypeDef ora,
+	u8 statoAmbiguoValido,
+	u8 statoAmbiguo){
+	u8 ultimaDomenica;
+
+	if(data.Month < 3U || data.Month > 10U){
+		return EUROPEAN_DST_STANDARD;
+	}
+
+	if(data.Month > 3U && data.Month < 10U){
+		return EUROPEAN_DST_SUMMER;
+	}
+
+	ultimaDomenica = ultimaDomenicaMese(data.Year,data.Month);
+
+	if(data.Month == 3U){
+		if(data.Date > ultimaDomenica){
+			return EUROPEAN_DST_SUMMER;
+		}
+		if(data.Date < ultimaDomenica){
+			return EUROPEAN_DST_STANDARD;
+		}
+		return (ora.Hours >= 2U) ?
+			EUROPEAN_DST_SUMMER : EUROPEAN_DST_STANDARD;
+	}
+
+	if(data.Date < ultimaDomenica){
+		return EUROPEAN_DST_SUMMER;
+	}
+	if(data.Date > ultimaDomenica){
+		return EUROPEAN_DST_STANDARD;
+	}
+	if(ora.Hours < 2U){
+		return EUROPEAN_DST_SUMMER;
+	}
+	if(ora.Hours >= 3U){
+		return EUROPEAN_DST_STANDARD;
+	}
+
+	if(statoAmbiguoValido != 0U){
+		return statoAmbiguo;
+	}
+
+	/* In assenza di informazioni persistenti privilegiamo l'ora solare. */
+	return EUROPEAN_DST_STANDARD;
+}
+
+static void salvaStatoOraLegaleEuropea(u8 stato){
+	u8 indirizzo[2] = {EUROPEAN_DST_FRAM_PAGE,EUROPEAN_DST_FRAM_OFFSET};
+	u8 dati[2];
+
+	dati[0] = EUROPEAN_DST_FRAM_MARKER;
+	dati[1] = stato;
+	saveArrayFram(&dati[0],&indirizzo[0],2);
+}
+
+#endif
+
+/*
+ * Registra lo stato coerente con un'ora locale appena impostata. Non
+ * modifica mai l'RTC: l'applicazione ha gia inviato l'ora locale corretta.
+ */
+static void registraStatoOraLocaleImpostata(void){
+#if EUROPEAN_DST_ENABLED == 1U
+	u8 nuovoStato;
+
+	HAL_RTC_GetTime(&hrtc,&currentTime,RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc,&currentDate,RTC_FORMAT_BIN);
+
+	nuovoStato = statoOraLegalePrevisto(
+		currentDate,
+		currentTime,
+		statoOraLegaleEuropeaValido,
+		statoOraLegaleEuropea
+	);
+
+	if(statoOraLegaleEuropeaValido == 0U ||
+	   nuovoStato != statoOraLegaleEuropea){
+		statoOraLegaleEuropea = nuovoStato;
+		statoOraLegaleEuropeaValido = 1U;
+		salvaStatoOraLegaleEuropea(statoOraLegaleEuropea);
+	}
+
+	DST = statoOraLegaleEuropea;
+#else
+	/* Gestione disabilitata: nessuna modifica allo stato storico. */
+#endif
+}
+
+void inizializzaGestioneOraLegaleEuropea(void){
+#if EUROPEAN_DST_ENABLED == 1U
+	u8 indirizzo[2] = {EUROPEAN_DST_FRAM_PAGE,EUROPEAN_DST_FRAM_OFFSET};
+	u8 dati[2];
+
+	DSTon = 1U;
+	ReadArrayFram(&dati[0],&indirizzo[0],2);
+
+	if(dati[0] == EUROPEAN_DST_FRAM_MARKER &&
+	   (dati[1] == EUROPEAN_DST_STANDARD ||
+	    dati[1] == EUROPEAN_DST_SUMMER)){
+		statoOraLegaleEuropea = dati[1];
+		statoOraLegaleEuropeaValido = 1U;
+		DST = statoOraLegaleEuropea;
+
+		/* Recupera anche un eventuale cambio avvenuto a dispositivo spento. */
+		gestisciOraLegaleEuropea();
+	}
+	else{
+		/*
+		 * Prima esecuzione dopo l'aggiornamento: deduce e salva lo stato,
+		 * ma non corregge l'RTC per evitare un possibile doppio cambio.
+		 */
+		registraStatoOraLocaleImpostata();
+	}
+#else
+	DSTon = 0U;
+	DST = 0U;
+#endif
+}
+
+u8 cambioOraLegaleEuropeaInAttesa(void){
+#if EUROPEAN_DST_ENABLED == 1U
+	u8 statoPrevisto;
+
+	if(statoOraLegaleEuropeaValido == 0U){
+		return 0U;
+	}
+
+	statoPrevisto = statoOraLegalePrevisto(
+		currentDate,
+		currentTime,
+		1U,
+		statoOraLegaleEuropea
+	);
+
+	return (statoPrevisto != statoOraLegaleEuropea) ? 1U : 0U;
+#else
+	return 0U;
+#endif
+}
+
+u8 gestisciOraLegaleEuropea(void){
+#if EUROPEAN_DST_ENABLED == 1U
+	u8 statoPrevisto;
+
+	if(statoOraLegaleEuropeaValido == 0U){
+		return 0U;
+	}
+
+	HAL_RTC_GetTime(&hrtc,&currentTime,RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc,&currentDate,RTC_FORMAT_BIN);
+
+	statoPrevisto = statoOraLegalePrevisto(
+		currentDate,
+		currentTime,
+		1U,
+		statoOraLegaleEuropea
+	);
+
+	if(statoPrevisto == statoOraLegaleEuropea){
+		DST = statoOraLegaleEuropea;
+		return 0U;
+	}
+
+	if(statoPrevisto == EUROPEAN_DST_SUMMER){
+		spostaRtcLocaleUnOra(1U);
+		inviaDebug("[RTC] Ora legale attiva: +1 ora\n");
+	}
+	else{
+		spostaRtcLocaleUnOra(0U);
+		inviaDebug("[RTC] Ora solare attiva: -1 ora\n");
+	}
+
+	statoOraLegaleEuropea = statoPrevisto;
+	statoOraLegaleEuropeaValido = 1U;
+	DST = statoOraLegaleEuropea;
+	salvaStatoOraLegaleEuropea(statoOraLegaleEuropea);
+
+	/* Aggiorna subito i valori globali senza incrementare i contatori RTC. */
+	HAL_RTC_GetTime(&hrtc,&currentTime,RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc,&currentDate,RTC_FORMAT_BIN);
+	myTimeVar = timetoposix(currentDate,currentTime);
+
+	return 1U;
+#else
+	return 0U;
+#endif
 }
 
 
@@ -1707,6 +2016,12 @@ void sethour(uint32_t A){
 
 			HAL_RTC_SetDate(&hrtc,&setDate,RTC_FORMAT_BIN);
 			HAL_RTC_SetTime(&hrtc,&setTime,RTC_FORMAT_BIN);
+
+			/*
+			 * Il timestamp ricevuto rappresenta gia l'ora locale. Aggiorniamo
+			 * quindi soltanto lo stato DST senza correggere l'ora impostata.
+			 */
+			registraStatoOraLocaleImpostata();
 			
 			
 			UpdateTime();
@@ -1842,7 +2157,16 @@ RTC_DateTypeDef posix2date(u32 A){
 
 
 u32 isDST(u32 A){
-	
+
+#if EUROPEAN_DST_ENABLED == 1U
+	/*
+	 * Con la nuova gestione l'epoch rappresenta gia l'ora locale e non deve
+	 * essere corretto. La variazione stagionale viene applicata direttamente
+	 * all'RTC dalla macchina a stati eseguita nel main.
+	 */
+	DST = statoOraLegaleEuropea;
+	return A;
+#else
 	struct dstTime dstLocal;
 	
 	/* Versione LITE Argentina: nessuna ora legale.
@@ -1867,6 +2191,7 @@ u32 isDST(u32 A){
 	}	
 	
 	return A;
+#endif
 }
 
 void impostaOra(u32 A){

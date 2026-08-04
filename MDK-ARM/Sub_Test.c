@@ -21,7 +21,7 @@ extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 
 
-extern uint8_t password[4];
+extern uint8_t password[17];
 
 extern u8 univoco[5];
 
@@ -662,6 +662,24 @@ void eseguiComandoTest(uint8_t *messaggio){
 			
 			case 0xa1:
 				simulaNeutro = 1;
+				HAL_UART_Transmit(&huart1,&OK[0],4,100);
+				break;
+
+			/*
+			 * Recovery password Bluetooth, disponibile solo sulla UART1 di
+			 * debug: ripristina il valore di fabbrica senza formattare la
+			 * FRAM e senza modificare le altre impostazioni del dispositivo.
+			 */
+			case 0xa2:
+				data[0] = '0'; data[1] = '0'; data[2] = '0'; data[3] = '0';
+				data[4] = '0'; data[5] = '0'; data[6] = '0'; data[7] = '0';
+				data[8] = 0;   data[9] = 0;   data[10] = 0; data[11] = 0;
+				data[12] = 0;  data[13] = 0;  data[14] = 0; data[15] = 0;
+				addressFram[0] = 2;
+				addressFram[1] = 234;
+				saveArrayFram(&data[0],&addressFram[0],16);
+				copiaArray(&password[0],&data[0],16);
+				inviaDebug("password BT ripristinata\n");
 				HAL_UART_Transmit(&huart1,&OK[0],4,100);
 				break;
 			

@@ -418,6 +418,17 @@ int mymain(void){
 		if(RTCpollingFlag == 1){
 			RTCpollingFlag = 0;
 			RTCpolling();
+			/*
+			 * Il cambio CET/CEST viene gestito nel main e non nell'interrupt
+			 * RTC, perche puo richiedere l'aggiornamento dell'RTC e della FRAM.
+			 */
+			if(gestisciOraLegaleEuropea() != 0U){
+				/*
+				 * Il callback RTC ha sospeso la pianificazione con la vecchia
+				 * ora; la ripetiamo ora usando l'orario locale corretto.
+				 */
+				salvataggio();
+			}
 		}
 
 		/*
