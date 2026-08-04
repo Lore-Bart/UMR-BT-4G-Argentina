@@ -267,10 +267,10 @@ double misura[6];
 extern u8 aggiungiNeutroStartDBflag;
 extern u8 triangolo;
 
-extern u8 APN[30];
-extern u8 mySQL[50];
-extern u8 userSQL[20];
-extern u8 pwSQL[20];
+extern u8 APN[50];
+extern u8 mySQL[100];
+extern u8 userSQL[30];
+extern u8 pwSQL[30];
 extern u8 attivaInternetFlag;
 
 extern u8 univoco[5];

@@ -133,10 +133,10 @@ extern u8 IDconnesso;
 extern u8 alimentatore;
 
 //internet
-extern u8 APN[30];
-extern u8 mySQL[50];
-extern u8 userSQL[20];
-extern u8 pwSQL[20];
+extern u8 APN[50];
+extern u8 mySQL[100];
+extern u8 userSQL[30];
+extern u8 pwSQL[30];
 extern u8 statoInternet;
 
 extern u8 spegniLed;
@@ -346,7 +346,10 @@ void initGSM(void){
 void primoAvvio(void){
 uint8_t indirizzo[2] = {0,0};
 uint8_t data[100];
-uint8_t defaultPassword[4] = "0000";
+uint8_t defaultPassword[16] = {
+	'0','0','0','0','0','0','0','0',0,0,0,0,0,0,0,0
+};
+uint8_t vecchiaPasswordMigrata[4] = {0xff,0xff,0xff,0xff};
 uint8_t formattatore[256];
 int i = 0; //indice utile per tutto
 
@@ -356,11 +359,9 @@ while(i<256){
 }
 i = 0; //azzero l'indice, potrebbe riservire
 
-data[0] = 1; //salvo primo avvio effettuato
-saveArrayFram(&data[0],&indirizzo[0],1);
 indirizzo[1] = 1;
-saveArrayFram(&defaultPassword[0],&indirizzo[0],10); //salvo la password di default
-copiaArray(&password[0],&defaultPassword[0],4); //imposto la password uguale alla default password
+/* Per una FRAM nuova la migrazione dalla vecchia password e gia conclusa. */
+saveArrayFram(&vecchiaPasswordMigrata[0],&indirizzo[0],4);
 indirizzo[1] = 5; //formatto tutto quello che c'è dopo nella pagina delle impostazioni
 saveArrayFram(&formattatore[0],&indirizzo[0],251);
 indirizzo[0] = 1;
@@ -375,8 +376,11 @@ indirizzo[0] = 2; //formatto la terza pagina della FRAM
 indirizzo[1] = 0;
 saveArrayFram(&formattatore[0],&indirizzo[0],256);
 
-sprintf(&password[0],"00000000");
-password[8] = 0;
+/* Password Bluetooth di fabbrica nella posizione definitiva della pagina 2. */
+indirizzo[1] = 234;
+saveArrayFram(&defaultPassword[0],&indirizzo[0],16);
+copiaArray(&password[0],&defaultPassword[0],16);
+password[16] = 0;
 
 recuperaSeriale();
 
@@ -408,6 +412,29 @@ indirizzo[1] = BAT_BACKUP_TIME_FRAM_OFFSET;
 data[0] = BAT_BACKUP_TIME_FRAM_MARKER;
 data[1] = BAT_BACKUP_TIME_DEFAULT_MIN;
 saveArrayFram(&data[0],&indirizzo[0],2);
+
+/*
+ * Configurazione APN iniziale: autenticazione disabilitata e credenziali
+ * vuote. Il blocco e valido gia dal primo avvio.
+ */
+for(i=0;i<(2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);i++){
+	data[i] = 0;
+}
+indirizzo[0] = APN_AUTH_FRAM_PAGE;
+indirizzo[1] = APN_AUTH_FRAM_OFFSET;
+data[0] = APN_AUTH_FRAM_MARKER;
+data[1] = APN_AUTH_NONE;
+saveArrayFram(&data[0],&indirizzo[0],
+	2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+
+/*
+ * Il marcatore viene scritto per ultimo. Se l'alimentazione manca prima,
+ * al riavvio l'inizializzazione completa viene tentata nuovamente.
+ */
+indirizzo[0] = 0;
+indirizzo[1] = 0;
+data[0] = 1;
+saveArrayFram(&data[0],&indirizzo[0],1);
 
 }
 
@@ -570,6 +597,7 @@ void avvioSistema(void){
 		//numero allarmi
 		indirizzo[1] = 47;
 		ReadArrayFram(&numeroAllarmi[0],&indirizzo[0],20);
+		numeroAllarmi[19] = 0;
 		////numero device SPOSTATO 2 121
 		//indirizzo[1] = 57;
 		//ReadArrayFram(&numeroDevice[0],&indirizzo[0],10);
@@ -617,9 +645,11 @@ void avvioSistema(void){
 		//metto i dati apn privato dopo 116
 		indirizzo[1] = 116;
 		ReadArrayFram(&userAPN[0],&indirizzo[0],30);
+		userAPN[29] = 0;
 		
 		indirizzo[1] = 146;
 		ReadArrayFram(&pwAPN[0],&indirizzo[0],30);
+		pwAPN[29] = 0;
 		
 		indirizzo[1] = 176;
 		ReadArrayFram(&retePrivata,&indirizzo[0],1);
@@ -648,12 +678,16 @@ void avvioSistema(void){
 		ReadArrayFram(&statoInternet,&indirizzo[0],1);
 		indirizzo[1] = 1;
 		ReadArrayFram(&APN[0],&indirizzo[0],50);
+		APN[49] = 0;
 		indirizzo[1] = 51; //vecchio 31
 		ReadArrayFram(&mySQL[0],&indirizzo[0],100);
+		mySQL[99] = 0;
 		indirizzo[1] = 151; //vecchio 81
 		ReadArrayFram(&userSQL[0],&indirizzo[0],30);
+		userSQL[29] = 0;
 		indirizzo[1] = 181; //vecchio 101
 		ReadArrayFram(&pwSQL[0],&indirizzo[0],30);
+		pwSQL[29] = 0;
 
 		/*
 		 * Configurazione dell'autenticazione PDP per il SIM7600.
@@ -699,6 +733,7 @@ void avvioSistema(void){
 		//numero device lo sposto qui 2 121
 		indirizzo[1] = 211; //vecchio 121
 		ReadArrayFram(&numeroDevice[0],&indirizzo[0],20);
+		numeroDevice[19] = 0;
 		
 		//2 //150 time carica
 		indirizzo[1] = 231; //vecchio 150
@@ -734,6 +769,7 @@ void avvioSistema(void){
 		
 		indirizzo[1] = 1;
 		ReadArrayFram(&addressNTP[0],&indirizzo[0],50);
+		addressNTP[49] = 0;
 
 		/*
 		 * Abilitazione degli SMS automatici di allarme.

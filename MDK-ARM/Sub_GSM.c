@@ -132,7 +132,7 @@ u8 debugDB = 0; //salvataggio batteria su
 
 
 
-extern uint8_t password[4];
+extern uint8_t password[17];
 
 u8 nuovaConnessione = 0;
 
