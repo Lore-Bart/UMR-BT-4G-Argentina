@@ -1,7 +1,7 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "prototipi.h"
-#include "time.h"
+#include "string.h"
 
 #define durataAvvio 20
 
@@ -1029,6 +1029,84 @@ void produzioneFun(void){
 }
 
 
+/*
+ * Conversioni civili condivise da tutta la gestione RTC.
+ * L'epoch viene trattato come ora locale codificata come UTC, secondo il
+ * protocollo storico dell'app. L'RTC STM32 supporta gli anni 2000..2099.
+ */
+static u8 annoGregorianoBisestile(u16 anno){
+	return ((anno % 4U) == 0U &&
+	       ((anno % 100U) != 0U || (anno % 400U) == 0U)) ? 1U : 0U;
+}
+
+static u8 giorniMeseGregoriano(u16 anno,u8 mese){
+	static const u8 giorni[12] = {
+		31U,28U,31U,30U,31U,30U,31U,31U,30U,31U,30U,31U
+	};
+	u8 risultato;
+
+	if(mese < 1U || mese > 12U){
+		return 0U;
+	}
+	risultato = giorni[mese - 1U];
+	if(mese == 2U && annoGregorianoBisestile(anno) != 0U){
+		risultato++;
+	}
+	return risultato;
+}
+
+static u8 epochLocaleToRtc(u32 epoch,RTC_DateTypeDef *data,
+	RTC_TimeTypeDef *ora){
+	u32 giorniTotali = epoch / 86400U;
+	u32 giorniResidui = giorniTotali;
+	u32 secondiGiorno = epoch % 86400U;
+	u16 anno = 1970U;
+	u8 mese = 1U;
+	u16 giorniAnno;
+	u8 giorniMese;
+	u8 weekDay;
+
+	while(anno <= 2099U){
+		giorniAnno = (annoGregorianoBisestile(anno) != 0U) ? 366U : 365U;
+		if(giorniResidui < giorniAnno){
+			break;
+		}
+		giorniResidui -= giorniAnno;
+		anno++;
+	}
+	if(anno < 2000U || anno > 2099U){
+		return 0U;
+	}
+
+	while(mese <= 12U){
+		giorniMese = giorniMeseGregoriano(anno,mese);
+		if(giorniResidui < giorniMese){
+			break;
+		}
+		giorniResidui -= giorniMese;
+		mese++;
+	}
+	if(mese > 12U){
+		return 0U;
+	}
+
+	memset(data,0,sizeof(*data));
+	memset(ora,0,sizeof(*ora));
+	data->Year = (u8)(anno - 2000U);
+	data->Month = mese;
+	data->Date = (u8)giorniResidui + 1U;
+	/* 1=lunedi ... 7=domenica; il giorno epoch 0 era giovedi. */
+	weekDay = (u8)((giorniTotali + 4U) % 7U);
+	data->WeekDay = (weekDay == 0U) ? 7U : weekDay;
+	ora->Hours = (u8)(secondiGiorno / 3600U);
+	secondiGiorno %= 3600U;
+	ora->Minutes = (u8)(secondiGiorno / 60U);
+	ora->Seconds = (u8)(secondiGiorno % 60U);
+	ora->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	ora->StoreOperation = RTC_STOREOPERATION_RESET;
+	return 1U;
+}
+
 //aggiornamento orario
 void UpdateTime(void){
 	u8 uart[100];
@@ -1374,153 +1452,18 @@ u8 gestisciOraLegaleEuropea(void){
 
 //ora estesa non posix
 void oraEstesa(uint32_t A){
-	
-			
-			RTC_DateTypeDef setDate;
-			RTC_TimeTypeDef setTime;			
-	
-			int i = -27;
-			int m = 1;
-			int g = 1;
-			int h = 0;
-			int min = 0;
-			int s = 0;
-			int b = 0;
-			
-	
-			A = A - 94694400;
-			//A -= 3600; //ADJ
-		
-			while(A >= 126230400){
-				A = A -126230400;
-				i = i + 4;
-				}
-						
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-			
-			if(A >= 31622400){
-				A = A - 31622400;
-				b = 1;
-				i = i + 1;
-			}
-			
+	RTC_DateTypeDef dataConvertita;
+	RTC_TimeTypeDef oraConvertita;
 
-			
-			//mesi
-			
-			//gennaio 31
-			if(A >= 2678400){
-				A = A - 2678400;
-				m = m+1;			
-			}
-			
-			//febbraio 28
-			if(A >= 2419200 && b == 0 && m == 2){
-				A = A - 2419200;
-				m = m+1;			
-			}
-			
-			if(A >= 2505600 && b == 1 && m == 2){
-				A = A - 2505600;
-				m = m+1;			
-			}
-			
-			//marzo 31
-			if(A >= 2678400 && m == 3){
-				A = A - 2678400;
-				m = m+1;			
-			}			
-			
-			//aprile 30
-			if(A >= 2592000 && m == 4){
-				A = A - 2592000;
-				m = m+1;			
-			}
-
-			//maggio 31
-			if(A >= 2678400 && m == 5){
-				A = A - 2678400;
-				m = m+1;			
-			}
-
-			//giugno 30
-			if(A >= 2592000 && m == 6){
-				A = A - 2592000;
-				m = m+1;			
-			}
-
-			//luglio 31
-			if(A >= 2678400 && m == 7){
-				A = A - 2678400;
-				m = m+1;			
-			}
-
-			//agosto 31
-			if(A >= 2678400 && m == 8){
-				A = A - 2678400;
-				m = m+1;			
-			}
-
-			//settembre 30
-			if(A >= 2592000 && m == 9){
-				A = A - 2592000;
-				m = m+1;			
-			}
-		
-			//ottobre 31
-			if(A >= 2678400 && m == 10){
-				A = A - 2678400;
-				m = m+1;			
-			}
-
-			//novembre 30
-			if(A >= 2592000 && m == 11){
-				A = A - 2592000;
-				m = m+1;			
-			}
-			
-			
-			//giorni
-			while(A >= 86400){
-				A = A-86400;
-				g = g + 1;
-			}
-			
-			//ore
-			while(A >= 3600){
-				A = A - 3600;
-				h = h + 1;
-			}
-			
-			//minuti
-			while(A >= 60){
-				A = A - 60;
-				min = min + 1;
-			}
-			
-			s = A;
-			
-			
-			currentDate.Year = i;
-			currentDate.Month = m;
-			currentDate.Date = g;
-			currentDate.WeekDay = WhatWeekDay(setDate);
-			currentTime.Hours = h;
-			currentTime.Minutes = min;
-			currentTime.Seconds = s;
-			
+	if(epochLocaleToRtc(A,&dataConvertita,&oraConvertita) != 0U){
+		currentDate = dataConvertita;
+		currentTime = oraConvertita;
+	}
 }
 
 u32 giornoSettimana(RTC_DateTypeDef data){
 
-	RTC_TimeTypeDef ora;
+	RTC_TimeTypeDef ora = {0};
 	u32 posix;
 
 	posix = timetoposix(data,ora);
@@ -1759,83 +1702,43 @@ struct dstTime estremiDSTposix(u32 posix){
 
 //giorno della settimana
 uint8_t WhatWeekDay(RTC_DateTypeDef data){
-	struct tm currenttime1;
-	RTC_TimeTypeDef ora;
+	RTC_TimeTypeDef ora = {0};
 	uint32_t posix;
-	uint8_t week;
-	
-	ora.Hours = 10;
-	ora.Minutes =  10;
-	ora.Seconds = 10;
 	
 	posix = timetoposix(data,ora);
-	currenttime1 = *localtime(&posix);
-	week = currenttime1.tm_wday;
 
-		return week;	
+	/* 01/01/1970 era giovedi': 0 = domenica, 4 = giovedi'. */
+	return (uint8_t)(((posix / 86400U) + 4U) % 7U);
 }
 
 //da orario esteso a posix
 uint32_t timetoposix(RTC_DateTypeDef data, RTC_TimeTypeDef ora){
-	
-	long secondi;
-	float bis1;
-	int bis2,giorni;
-	
-	//calcolo numero anni bisestili
-	bis1 = (data.Year + 28)/4;
-	bis2 = bis1;
-	bis2 = bis2 +1;
-	
-	//calcolo giorni fino a 1 gennaio
-	giorni = (data.Year + 30)*365 + bis2;
-	
-	//aggiungo il numero di giorni fino al mese precedente
-	
-	switch(data.Month){
-	case 1:
-		giorni = giorni;
-		break;
-	case 2:
-		giorni = giorni + 31;
-		break;
-	case 3:
-		giorni = giorni + 59;
-		break;
-	case 4:
-		giorni = giorni + 90;
-		break;
-	case 5:
-		giorni = giorni + 120;
-		break;
-	case 6:
-		giorni = giorni + 151;
-		break;
-	case 7:
-		giorni = giorni + 181;
-		break;
-	case 8:
-		giorni = giorni + 212;
-		break;
-	case 9:
-		giorni = giorni + 243;
-		break;
-	case 10:
-		giorni = giorni + 273;
-		break;
-	case 11:
-		giorni = giorni + 304;
-		break;
-	case 12:
-		giorni = giorni + 334;
-		break;
+	u16 anno = (u16)data.Year + 2000U;
+	u16 annoCorrente;
+	u8 mese;
+	u8 giorniMese;
+	u32 giorni = 0U;
+
+	if(anno > 2099U){
+		return 0U;
 	}
 
-	//calcolo i secondi
-	secondi = (((giorni + data.Date - 1) * 24 + (ora.Hours - 1)) * 60 + ora.Minutes)*60 + ora.Seconds;
-	secondi += 3600;
+	giorniMese = giorniMeseGregoriano(anno,data.Month);
+	if(giorniMese == 0U || data.Date < 1U || data.Date > giorniMese ||
+	   ora.Hours > 23U || ora.Minutes > 59U || ora.Seconds > 59U){
+		return 0U;
+	}
 
-	return(secondi);
+	for(annoCorrente = 1970U;annoCorrente < anno;annoCorrente++){
+		giorni += (annoGregorianoBisestile(annoCorrente) != 0U) ? 366U : 365U;
+	}
+	for(mese = 1U;mese < data.Month;mese++){
+		giorni += giorniMeseGregoriano(anno,mese);
+	}
+	giorni += (u32)data.Date - 1U;
+
+	return giorni * 86400U + (u32)ora.Hours * 3600U +
+		(u32)ora.Minutes * 60U + (u32)ora.Seconds;
 }
 
 //calcolo se un anno  bisestile
@@ -1860,298 +1763,48 @@ u8 bisestile(u8 anno){
 
 //imposta orario
 void sethour(uint32_t A){
+	RTC_DateTypeDef setDate;
+	RTC_TimeTypeDef setTime;
+	u8 uart[120];
 
-			RTC_DateTypeDef setDate;
-			RTC_TimeTypeDef setTime;
-			u8 uart[100];
+	if(epochLocaleToRtc(A,&setDate,&setTime) == 0U){
+		sprintf((char*)uart,"[RTC] Epoch non valido: %lu\n",(unsigned long)A);
+		inviaDebug(uart);
+		return;
+	}
 
-			int i = -27;
-			int m = 1;
-			int g = 1;
-			int h = 0;
-			int min = 0;
-			int s = 0;
-			int b = 0;
+	if(HAL_RTC_SetDate(&hrtc,&setDate,RTC_FORMAT_BIN) != HAL_OK ||
+	   HAL_RTC_SetTime(&hrtc,&setTime,RTC_FORMAT_BIN) != HAL_OK){
+		sprintf((char*)uart,"[RTC] Errore impostazione epoch=%lu\n",(unsigned long)A);
+		inviaDebug(uart);
+		return;
+	}
 
-			//A = A - 3600*DST;
+	/*
+	 * L'epoch ricevuto rappresenta gia l'ora locale. Aggiorniamo quindi
+	 * soltanto lo stato DST senza correggere l'ora appena impostata.
+	 */
+	registraStatoOraLocaleImpostata();
+	UpdateTime();
 
-			sprintf(uart,"input %d\n\n", A);
-	    HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
-	
-			A = A - 94694400;
-			//A += 3600; //ADJ
-
-			while(A >= 126230400){
-				A = A -126230400;
-				i = i + 4;
-				}
-
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-
-			if(A >= 31536000){
-				A = A - 31536000;
-				b = 1;
-				i = i + 1;
-			}
-
-
-
-			//mesi
-
-			//gennaio 31
-			if(A >= 2678400){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//febbraio 28
-			if(A >= 2419200 && b == 0 && m == 2){
-				A = A - 2419200;
-				m = m+1;
-			}
-
-			if(A >= 2505600 && b == 1 && m == 2){
-				A = A - 2505600;
-				m = m+1;
-			}
-
-			//marzo 31
-			if(A >= 2678400 && m == 3){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//aprile 30
-			if(A >= 2592000 && m == 4){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//maggio 31
-			if(A >= 2678400 && m == 5){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//giugno 30
-			if(A >= 2592000 && m == 6){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//luglio 31
-			if(A >= 2678400 && m == 7){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//agosto 31
-			if(A >= 2678400 && m == 8){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//settembre 30
-			if(A >= 2592000 && m == 9){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//ottobre 31
-			if(A >= 2678400 && m == 10){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//novembre 30
-			if(A >= 2592000 && m == 11){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-
-			//giorni
-			while(A >= 86400){
-				A = A-86400;
-				g = g + 1;
-			}
-
-			//ore
-			while(A >= 3600){
-				A = A - 3600;
-				h = h + 1;
-			}
-
-			//minuti
-			while(A >= 60){
-				A = A - 60;
-				min = min + 1;
-			}
-
-			s = A;
-
-
-			setDate.Year = i;
-			setDate.Month = m;
-			setDate.Date = g;
-			//setDate.WeekDay = giornoSettimana(setDate);
-			setTime.Hours = h;
-			setTime.Minutes = min;
-			setTime.Seconds = s;
-			
-			/*setDate.Year = 21;
-			setDate.Month = 11;
-			setDate.Date = 4;
-			//setDate.WeekDay = giornoSettimana(setDate);
-			setTime.Hours = 0;
-			setTime.Minutes = 26;
-			setTime.Seconds = 0;*/
-
-			HAL_RTC_SetDate(&hrtc,&setDate,RTC_FORMAT_BIN);
-			HAL_RTC_SetTime(&hrtc,&setTime,RTC_FORMAT_BIN);
-
-			/*
-			 * Il timestamp ricevuto rappresenta gia l'ora locale. Aggiorniamo
-			 * quindi soltanto lo stato DST senza correggere l'ora impostata.
-			 */
-			registraStatoOraLocaleImpostata();
-			
-			
-			UpdateTime();
-
-			sprintf(uart,"set: %d %d %d     %d %d %d\n%d\n\n", setDate.Date, setDate.Month, setDate.Year, setTime.Hours,setTime.Minutes, setTime.Seconds,myTimeVar);
-	    HAL_UART_Transmit(&huart1,uart,strlen(uart),100);
+	sprintf((char*)uart,
+		"[RTC] impostato epoch=%lu -> %02u/%02u/20%02u %02u:%02u:%02u\n",
+		(unsigned long)A,setDate.Date,setDate.Month,setDate.Year,
+		setTime.Hours,setTime.Minutes,setTime.Seconds);
+	inviaDebug(uart);
 }
 
 
 RTC_DateTypeDef posix2date(u32 A){
+	RTC_DateTypeDef date;
+	RTC_TimeTypeDef ora;
 
-			RTC_DateTypeDef date;
-			
-			u8 uart[100];
+	memset(&date,0,sizeof(date));
+	if(epochLocaleToRtc(A,&date,&ora) == 0U){
+		memset(&date,0,sizeof(date));
+	}
 
-			int i = -27;
-			int m = 1;
-			int g = 1;
-			int b = 0;
-
-			//A = A - 3600*DST;
-
-			A = A - 94694400;
-			//A += 3600; //ADJ
-
-			while(A >= 126230400){
-				A = A -126230400;
-				i = i + 4;
-				}
-
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-			if(A >= 31536000){
-				A = A - 31536000;
-				i = i + 1;
-			}
-
-			if(A >= 31536000){
-				A = A - 31536000;
-				b = 1;
-				i = i + 1;
-			}
-
-			//mesi
-
-			//gennaio 31
-			if(A >= 2678400){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//febbraio 28
-			if(A >= 2419200 && b == 0 && m == 2){
-				A = A - 2419200;
-				m = m+1;
-			}
-
-			if(A >= 2505600 && b == 1 && m == 2){
-				A = A - 2505600;
-				m = m+1;
-			}
-
-			//marzo 31
-			if(A >= 2678400 && m == 3){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//aprile 30
-			if(A >= 2592000 && m == 4){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//maggio 31
-			if(A >= 2678400 && m == 5){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//giugno 30
-			if(A >= 2592000 && m == 6){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//luglio 31
-			if(A >= 2678400 && m == 7){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//agosto 31
-			if(A >= 2678400 && m == 8){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//settembre 30
-			if(A >= 2592000 && m == 9){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-			//ottobre 31
-			if(A >= 2678400 && m == 10){
-				A = A - 2678400;
-				m = m+1;
-			}
-
-			//novembre 30
-			if(A >= 2592000 && m == 11){
-				A = A - 2592000;
-				m = m+1;
-			}
-
-
-			//giorni
-			while(A >= 86400){
-				A = A-86400;
-				g = g + 1;
-			}
-
-			date.Year = i;
-			date.Month = m;
-			date.Date = g;
-			
-			return date;
+	return date;
 
 }
 
@@ -2194,11 +1847,17 @@ u32 isDST(u32 A){
 #endif
 }
 
-void impostaOra(u32 A){
-	
-	//A = isDST(A);
-	regolaOra = A;
+u8 impostaOra(u32 A){
+	RTC_DateTypeDef data;
+	RTC_TimeTypeDef ora;
 
+	if(epochLocaleToRtc(A,&data,&ora) == 0U){
+		return 0U;
+	}
+
+	/* La scrittura effettiva dell'RTC avviene nel main tramite sethour(). */
+	regolaOra = A;
+	return 1U;
 }
 
 

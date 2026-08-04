@@ -180,6 +180,7 @@ void eseguiComandoBT(uint8_t *messaggio){
 	u8 pwOff = 0; //posizione del codice del comando
 	u8 oldPassword[20];
 	u8 newPassword[20];
+	u8 APNlocal[50];
 	int contPW = 0;
 	int contPWnew = 0;
 	u8 check = 0;
@@ -335,11 +336,18 @@ void eseguiComandoBT(uint8_t *messaggio){
 				
 			case 0x0c: //imposta data e ora
 				A = array2u32(&messaggio[pwOff+2]);
-				impostaOra(A);
-				sprintf(uart,"set: %d\n",A);
+				if(impostaOra(A) == 0U){
+					inviaDebug("[RTC] Epoch C0C fuori intervallo\n");
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+					break;
+				}
+				sprintf(uart,"[RTC] C0C epoch=%lu bytes=%02X %02X %02X %02X\n",
+					(unsigned long)A,
+					(unsigned int)messaggio[pwOff+2],
+					(unsigned int)messaggio[pwOff+3],
+					(unsigned int)messaggio[pwOff+4],
+					(unsigned int)messaggio[pwOff+5]);
 				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
-				estremiDSTposix(A);
-			
 			
 				HAL_UART_Transmit(&huart2,&OK[0],4,1000);
 				break;
@@ -555,15 +563,33 @@ void eseguiComandoBT(uint8_t *messaggio){
 			case 0x51: //set APN
 				i = pwOff+2;
 				a = 0;
-				while(messaggio[i] != 0 && i <= pwOff+52){
-					APN[a] = messaggio[i];
+				while(messaggio[i] != 0 && messaggio[i] != '\r' &&
+				      messaggio[i] != '\n' && a < 49){
+					/* Evita comandi AT malformati o concatenati nell'APN. */
+					if(messaggio[i] < 0x20U || messaggio[i] > 0x7EU ||
+					   messaggio[i] == '\x22'){
+						break;
+					}
+					APNlocal[a++] = messaggio[i++];
+				}
+				if(messaggio[i] == '\r'){
 					i++;
-					a++;
+					if(messaggio[i] == '\n'){
+						i++;
+					}
 				}
-				while(a<50){
-					APN[a] = 0;
-					a++;
+				else if(messaggio[i] == '\n'){
+					i++;
 				}
+				/* Massimo 49 caratteri: il byte 50 resta sempre il terminatore. */
+				if(messaggio[i] != 0){
+					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
+					break;
+				}
+				while(a < 50){
+					APNlocal[a++] = 0;
+				}
+				copiaArray(&APN[0],&APNlocal[0],50);
 						
 				addressFram[0] = 2; addressFram[1] = 1;
 				saveArrayFram(&APN[0],&addressFram[0],50);
@@ -631,6 +657,9 @@ void eseguiComandoBT(uint8_t *messaggio){
 				 */
 				if(messaggio[pwOff+2] == '0'){
 					statoInternet = 0;
+					/* Una disabilitazione manuale deve fermare anche una
+					 * configurazione PDP eventualmente ancora in corso. */
+					annullaSequenzaConnessioneInternet();
 					disattivaInternetFlag = 1;
 					clearDatabaseRequests();
 					
@@ -1088,10 +1117,12 @@ void eseguiComando4G(uint8_t *messaggio){
 				
 			case 0x0c: //imposta data e ora
 				A = array2u32(&messaggio[pwOff+2]);
-				//A = isDST(A);
-				regolaOra = A;
-				//sethour(A);
-				sprintf(uart,"set A: %d\n",A);
+				if(impostaOra(A) == 0U){
+					inviaSMS(&lastNumber[0],strlen(lastNumber),
+						(u8*)"TIME NOT VALID",14);
+					break;
+				}
+				sprintf(uart,"[RTC] SMS epoch=%lu\n",(unsigned long)A);
 				HAL_UART_Transmit(&huart1,uart, strlen(uart),100);
 				inviaSMS(&lastNumber[0],strlen(lastNumber),&OK_GSM[0],8);					
 				break;

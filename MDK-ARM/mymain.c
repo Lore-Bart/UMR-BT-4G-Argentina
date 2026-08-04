@@ -68,7 +68,7 @@ u8 intervalloAllarmeSovracorrenteMinuti = 1;
 u8 tempoSpegnimentoBatteriaMinuti = BAT_BACKUP_TIME_DEFAULT_MIN;
 
 //versione software
-u16 software = 21;
+u16 software = 22;
 u8 XL = 0;	
 
 extern u8 BTattivo;
@@ -453,10 +453,8 @@ int mymain(void){
 		
 		//connessione internet
 		if(stato4G > 2 && statoModulo == 0 && statoInternet == 1 && avvioConcluso == 1){
-			//statoModulo++; inviaDebug("statoModulo++\n");
-			HAL_UART_Transmit(&huart6,(u8*)"AT+NETCLOSE\r",12,100);
-			HAL_Delay(1000);
-			//statoModulo--; inviaDebug("statoModulo--\n");
+			/* Chiusura e disattivazione del vecchio contesto sono ora parte
+			 * della macchina a stati non bloccante di connettiInternet(). */
 			connettiInternet();
 		}
 		
@@ -539,6 +537,7 @@ int mymain(void){
 			 * un nuovo tentativo pulito dal main loop.
 			 */
 			if(statoInternet == 2){
+				annullaSequenzaConnessioneInternet();
 				statoInternet = 1;
 			}
 

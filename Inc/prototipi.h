@@ -10,7 +10,7 @@
 #define timeoutSMS2 5
 #define	VAR 0
 #define tempoDisBT 300
-#define timerModuloESCinit	15
+#define timerModuloESCinit	30
 //#define sogliaI 500
 
 #define SMS_ALARM_FRAM_PAGE           3U
@@ -58,7 +58,7 @@
  *
  * Sono ammessi esclusivamente i valori 0 e 1.
  */
-#define EUROPEAN_DST_ENABLED               0U
+#define EUROPEAN_DST_ENABLED               1U
 
 #if (EUROPEAN_DST_ENABLED != 0U) && (EUROPEAN_DST_ENABLED != 1U)
 #error "EUROPEAN_DST_ENABLED deve valere 0 oppure 1"
@@ -353,6 +353,7 @@ void riavvioBT(void);
 void inviaSMSpoll(u8 coda);
 void esportaParametriInternet(u8* messaggio);
 void connettiInternet(void);
+void annullaSequenzaConnessioneInternet(void);
 void clearDatabaseRequests(void);
 void clearDatabaseProfileRequests(void);
 void processDatabaseRequests(void);
@@ -435,7 +436,7 @@ void aggiornaOrarioNTP(void);
 void impostaOrarioNTP(u8* messaggio);
 RTC_DateTypeDef posix2date(u32 A);
 struct dstTime estremiDSTposix(u32 posix);
-void impostaOra(u32 A);
+u8 impostaOra(u32 A);
 void NTPon(u8* messaggio);
 void NTPoff(u8* messaggio);
 void NTPrefresh(u8* messaggio);

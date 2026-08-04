@@ -89,6 +89,41 @@ u8 userAPN[30];
 u8 pwAPN[30];
 u8 apnAuthType = APN_AUTH_NONE;
 
+/*
+ * Sequenza non bloccante usata per preparare il contesto PDP del SIM7600.
+ * Un solo comando AT rimane in volo: il successivo viene inviato soltanto
+ * dopo avere ricevuto la risposta prevista dal comando precedente.
+ */
+typedef enum{
+	INTERNET_SETUP_IDLE = 0,
+	INTERNET_SETUP_WAIT_HTTPTERM,
+	INTERNET_SETUP_WAIT_NETCLOSE,
+	INTERNET_SETUP_WAIT_NETCLOSE_ERROR,
+	INTERNET_SETUP_WAIT_DEACTIVATE,
+	INTERNET_SETUP_WAIT_CGDCONT,
+	INTERNET_SETUP_WAIT_CGAUTH,
+	INTERNET_SETUP_WAIT_ACTIVATE,
+	INTERNET_SETUP_WAIT_NETOPEN,
+	INTERNET_SETUP_WAIT_HTTPINIT
+} InternetSetupState;
+
+#define INTERNET_SETUP_RETRY_DELAY_MS 5000U
+
+static InternetSetupState internetSetupState = INTERNET_SETUP_IDLE;
+static u32 internetSetupRetryTick = 0U;
+
+static void internetSetupTransmit(const char *command,
+	InternetSetupState nextState);
+static void internetSetupSendNetclose(void);
+static void internetSetupSendDeactivate(void);
+static void internetSetupSendCgdcont(void);
+static void internetSetupSendCgauth(void);
+static void internetSetupSendActivate(void);
+static void internetSetupSendNetopen(void);
+static void internetSetupSendHttpinit(void);
+static void internetSetupFailed(const char *stage);
+static int internetSetupHandleResponse(u8 *messaggio);
+
 
 
 u8 retePrivata = 0;
@@ -319,6 +354,15 @@ void risposteGSM(uint8_t *messaggio){
 	int i = 7;
 	
 	riavvioForzato = timeoutModulo;
+
+	/*
+	 * Durante l'apertura Internet le risposte OK/ERROR appartengono alla
+	 * macchina a stati PDP e devono essere interpretate prima dei gestori
+	 * generici del modem. Gli URC non correlati continuano invece sotto.
+	 */
+	if(internetSetupHandleResponse(messaggio) != 0){
+		return;
+	}
 	
 	if(cercaStringa(&messaggio[0],(u8*)"CMTI",4,&pointer) == 1){//lettura SMS
 		/* Salvo la notifica completa e poi il main leggera' l'indice in modo robusto. */
@@ -368,26 +412,7 @@ void risposteGSM(uint8_t *messaggio){
 	else if(cercaStringa(&messaggio[0],(u8*)"ATI",3,&pointer)){
 		statoModulo = 0;
 	}
-	else if(cercaStringa(&messaggio[0],(u8*)"+NETOPEN:",9,&pointer)){
-		/*
-		 * Parsing robusto: prima veniva controllato messaggio[18], quindi bastava
-		 * un echo o un CR/LF diverso per interpretare male la risposta.
-		 */
-		if(statoModulo > 0){
-			statoModulo--; inviaDebug("statoModulo--\n");
-		}
-		if(strstr((char*)messaggio,"+NETOPEN: 0") != 0){
-			statoInternet = 3;
-			delay(200);
-			HAL_UART_Transmit(&huart6,(u8*)"AT+HTTPINIT\r",12,100);
-			delay(200);
-		}
-		else{
-			/* NETOPEN fallita: internet resta abilitato ma non connesso, cosi' il main ritenta. */
-			statoInternet = 1;
-		}
-	}
-		else if(cercaStringa(&messaggio[0],(u8*)"CNTP:",5,&pointer)){
+	else if(cercaStringa(&messaggio[0],(u8*)"CNTP:",5,&pointer)){
 		if(statoModulo > 0){
 			statoModulo--; inviaDebug("statoModulo--\n");
 		}
@@ -1175,52 +1200,222 @@ void attivaDebugDB(u8* messaggio){
 
 
 
-void connettiInternet(void){
-	
-	u8 setAPN[100] = "AT+CGDCONT=1,\x22IP\x22,\x22";
-	u8 setAPN3[2] = "\x22\r";
-	u8 setAuth[100];
-	u8 taskTCP[13] = "AT+CGACT=1,1\r";
-	u8 connessione[11] = "AT+NETOPEN\r";
-	int lunghezzaAuth;
-	
-	copiaArray(&setAPN[19],&APN[0],strlen(APN));
-	copiaArray(&setAPN[strlen(setAPN)],&setAPN3[0],2);
+static void internetSetupTransmit(const char *command,
+	InternetSetupState nextState){
+	internetSetupState = nextState;
+	timerModuloESC = timerModuloESCinit;
+	HAL_UART_Transmit(&huart6,(u8*)command,strlen(command),1000);
+}
 
-	/*
-	 * +CGAUTH e' il comando SIMCom per l'autenticazione dell'APN.
-	 * Lo inviamo anche per il tipo NONE: in questo modo una configurazione
-	 * pubblica cancella esplicitamente eventuali credenziali rimaste nel
-	 * contesto PDP del modulo dopo l'uso di un APN privato.
-	 * L'ordine richiesto dal SIM7600 e' password, username.
-	 */
+static void internetSetupSendNetclose(void){
+	internetSetupTransmit("AT+NETCLOSE\r",INTERNET_SETUP_WAIT_NETCLOSE);
+}
+
+static void internetSetupSendDeactivate(void){
+	/* Rende modificabile il CID 1 anche dopo un precedente APN attivo. */
+	internetSetupTransmit("AT+CGACT=0,1\r",INTERNET_SETUP_WAIT_DEACTIVATE);
+}
+
+static void internetSetupSendCgdcont(void){
+	char command[100];
+	int length;
+
+	length = snprintf(command,sizeof(command),
+		"AT+CGDCONT=1,\x22IP\x22,\x22%s\x22\r",(char*)APN);
+	if(length <= 0 || length >= (int)sizeof(command)){
+		internetSetupFailed("CGDCONT buffer");
+		return;
+	}
+	internetSetupTransmit(command,INTERNET_SETUP_WAIT_CGDCONT);
+}
+
+static void internetSetupSendCgauth(void){
+	char command[100];
+	int length;
+
+	/* Il SIM7600 richiede password prima di username. */
 	if(apnAuthType == APN_AUTH_NONE){
-		lunghezzaAuth = snprintf((char*)setAuth, sizeof(setAuth),
-			"AT+CGAUTH=1,0\r");
+		length = snprintf(command,sizeof(command),"AT+CGAUTH=1,0\r");
+	}
+	else if(apnAuthType <= APN_AUTH_PAP_OR_CHAP){
+		length = snprintf(command,sizeof(command),
+			"AT+CGAUTH=1,%u,\x22%s\x22,\x22%s\x22\r",
+			(unsigned int)apnAuthType,(char*)pwAPN,(char*)userAPN);
 	}
 	else{
-		lunghezzaAuth = snprintf((char*)setAuth, sizeof(setAuth),
-			"AT+CGAUTH=1,%u,\x22%s\x22,\x22%s\x22\r",
-			(unsigned int)apnAuthType,
-			(char*)pwAPN,
-			(char*)userAPN);
+		internetSetupFailed("CGAUTH type");
+		return;
 	}
-	
-	statoModulo++; inviaDebug("statoModulo++\n");
-	
-	HAL_UART_Transmit(&huart6,&setAPN[0],strlen(setAPN),1000);
-	HAL_Delay(100);
-	if(lunghezzaAuth > 0 && lunghezzaAuth < (int)sizeof(setAuth)){
-		HAL_UART_Transmit(&huart6,&setAuth[0],lunghezzaAuth,1000);
-		HAL_Delay(100);
-	}
-	HAL_UART_Transmit(&huart6,&taskTCP[0],13,1000);
-	HAL_Delay(100);
-	statoInternet = 2;
 
-	HAL_UART_Transmit(&huart6,&connessione[0],11,1000);
-	
-	
+	if(length <= 0 || length >= (int)sizeof(command)){
+		internetSetupFailed("CGAUTH buffer");
+		return;
+	}
+	internetSetupTransmit(command,INTERNET_SETUP_WAIT_CGAUTH);
+}
+
+static void internetSetupSendActivate(void){
+	internetSetupTransmit("AT+CGACT=1,1\r",INTERNET_SETUP_WAIT_ACTIVATE);
+}
+
+static void internetSetupSendNetopen(void){
+	internetSetupTransmit("AT+NETOPEN\r",INTERNET_SETUP_WAIT_NETOPEN);
+}
+
+static void internetSetupSendHttpinit(void){
+	internetSetupTransmit("AT+HTTPINIT\r",INTERNET_SETUP_WAIT_HTTPINIT);
+}
+
+static void internetSetupFailed(const char *stage){
+	char debug[100];
+
+	snprintf(debug,sizeof(debug),"[NET] errore connessione: %s\n",stage);
+	inviaDebug((u8*)debug);
+	internetSetupState = INTERNET_SETUP_IDLE;
+	internetSetupRetryTick = HAL_GetTick() + INTERNET_SETUP_RETRY_DELAY_MS;
+	statoInternet = 1;
+	if(statoModulo > 0){
+		statoModulo--;
+		inviaDebug("statoModulo--\n");
+	}
+}
+
+static int internetSetupHandleResponse(u8 *messaggio){
+	char *response = (char*)messaggio;
+
+	/* Gli URC tardivi non devono modificare lo stato di una nuova sequenza. */
+	if(strstr(response,"+NETCLOSE:") != 0){
+		if(internetSetupState == INTERNET_SETUP_WAIT_NETCLOSE){
+			if(strstr(response,"+NETCLOSE: 0") != 0){
+				internetSetupSendDeactivate();
+			}
+			else if(strstr(response,"ERROR") != 0){
+				/* Rete gia chiusa: il risultato e completo nello stesso blocco. */
+				internetSetupSendDeactivate();
+			}
+			else{
+				/* Il SIM7600 aggiunge ERROR dopo l'URC quando la rete era chiusa. */
+				internetSetupState = INTERNET_SETUP_WAIT_NETCLOSE_ERROR;
+			}
+		}
+		return 1;
+	}
+
+	if(strstr(response,"+NETOPEN:") != 0){
+		if(internetSetupState == INTERNET_SETUP_WAIT_NETOPEN){
+			if(strstr(response,"+NETOPEN: 0") != 0){
+				internetSetupSendHttpinit();
+			}
+			else{
+				internetSetupFailed("NETOPEN");
+			}
+		}
+		return 1;
+	}
+
+	if(internetSetupState == INTERNET_SETUP_IDLE){
+		return 0;
+	}
+
+	if(strstr(response,"ERROR") != 0){
+		switch(internetSetupState){
+			case INTERNET_SETUP_WAIT_HTTPTERM:
+				/* HTTP non inizializzato: si puo comunque chiudere la rete. */
+				internetSetupSendNetclose();
+				break;
+			case INTERNET_SETUP_WAIT_NETCLOSE:
+			case INTERNET_SETUP_WAIT_NETCLOSE_ERROR:
+				/* Rete gia chiusa o nessun servizio TCP/IP aperto. */
+				internetSetupSendDeactivate();
+				break;
+			case INTERNET_SETUP_WAIT_DEACTIVATE:
+				/* Contesto gia disattivo: e possibile ridefinirlo. */
+				internetSetupSendCgdcont();
+				break;
+			case INTERNET_SETUP_WAIT_CGDCONT:
+				internetSetupFailed("CGDCONT");
+				break;
+			case INTERNET_SETUP_WAIT_CGAUTH:
+				internetSetupFailed("CGAUTH");
+				break;
+			case INTERNET_SETUP_WAIT_ACTIVATE:
+				internetSetupFailed("CGACT activate");
+				break;
+			case INTERNET_SETUP_WAIT_NETOPEN:
+				internetSetupFailed("NETOPEN command");
+				break;
+			case INTERNET_SETUP_WAIT_HTTPINIT:
+				internetSetupFailed("HTTPINIT");
+				break;
+			default:
+				internetSetupFailed("unknown state");
+				break;
+		}
+		return 1;
+	}
+
+	if(strstr(response,"OK") != 0){
+		switch(internetSetupState){
+			case INTERNET_SETUP_WAIT_HTTPTERM:
+				internetSetupSendNetclose();
+				break;
+			case INTERNET_SETUP_WAIT_DEACTIVATE:
+				internetSetupSendCgdcont();
+				break;
+			case INTERNET_SETUP_WAIT_CGDCONT:
+				internetSetupSendCgauth();
+				break;
+			case INTERNET_SETUP_WAIT_CGAUTH:
+				internetSetupSendActivate();
+				break;
+			case INTERNET_SETUP_WAIT_ACTIVATE:
+				internetSetupSendNetopen();
+				break;
+			case INTERNET_SETUP_WAIT_HTTPINIT:
+				internetSetupState = INTERNET_SETUP_IDLE;
+				statoInternet = 3;
+				if(statoModulo > 0){
+					statoModulo--;
+					inviaDebug("statoModulo--\n");
+				}
+				inviaDebug("[NET] connessione Internet attiva\n");
+				break;
+			default:
+				/* NETCLOSE e NETOPEN terminano con un URC dedicato. */
+				break;
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
+void annullaSequenzaConnessioneInternet(void){
+	if(internetSetupState != INTERNET_SETUP_IDLE && statoModulo > 0){
+		statoModulo--;
+		inviaDebug("statoModulo--\n");
+	}
+	internetSetupState = INTERNET_SETUP_IDLE;
+	internetSetupRetryTick = HAL_GetTick() + INTERNET_SETUP_RETRY_DELAY_MS;
+}
+
+void connettiInternet(void){
+	if(internetSetupState != INTERNET_SETUP_IDLE || statoModulo != 0){
+		return;
+	}
+	if((int32_t)(HAL_GetTick() - internetSetupRetryTick) < 0){
+		return;
+	}
+
+	statoInternet = 2;
+	statoModulo++;
+	inviaDebug("statoModulo++\n");
+
+	/*
+	 * HTTPTERM, NETCLOSE e CGACT=0 rendono la procedura ripetibile anche
+	 * quando cambia APN senza un vero power-cycle del SIM7600.
+	 */
+	internetSetupTransmit("AT+HTTPTERM\r",INTERNET_SETUP_WAIT_HTTPTERM);
 }
 
 void connettiInternet5(void){
