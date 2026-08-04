@@ -685,9 +685,16 @@ void avvioSistema(void){
 			copiaArray(&data[2],userAPN,APN_AUTH_USER_SIZE);
 			copiaArray(&data[2 + APN_AUTH_USER_SIZE],pwAPN,
 				APN_AUTH_PASSWORD_SIZE);
-			saveArrayFram(&data[0],&indirizzo[0],
-				2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
+				saveArrayFram(&data[0],&indirizzo[0],
+					2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
 		}
+
+		/*
+		 * Il blocco APN precedente usa la pagina 3. Le impostazioni che
+		 * seguono (numero dispositivo, timer, password e soglie) sono invece
+		 * memorizzate nella pagina 2: selezionarla nuovamente esplicitamente.
+		 */
+		indirizzo[0] = 2;
 		
 		//numero device lo sposto qui 2 121
 		indirizzo[1] = 211; //vecchio 121
@@ -703,6 +710,8 @@ void avvioSistema(void){
 		
 		indirizzo[1] = 234;
 		ReadArrayFram(&password[0],&indirizzo[0],16);
+		/* L'array in RAM ha 17 byte: il byte finale e sempre il terminatore. */
+		password[16] = 0;
 		
 		indirizzo[1] = 250;
 		ReadArrayFram(&data[0],&indirizzo[0],2);

@@ -844,6 +844,16 @@ void eseguiComandoBT(uint8_t *messaggio){
 					}
 					userAPN[a++] = messaggio[i++];
 				}
+				/* Il protocollo Bluetooth puo terminare il comando con CR o CRLF. */
+				if(messaggio[i] == '\r'){
+					i++;
+					if(messaggio[i] == '\n'){
+						i++;
+					}
+				}
+				else if(messaggio[i] == '\n'){
+					i++;
+				}
 				if(messaggio[i] != 0){
 					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
 					break;
@@ -874,6 +884,16 @@ void eseguiComandoBT(uint8_t *messaggio){
 					}
 					pwAPN[a++] = messaggio[i++];
 				}
+				/* Il protocollo Bluetooth puo terminare il comando con CR o CRLF. */
+				if(messaggio[i] == '\r'){
+					i++;
+					if(messaggio[i] == '\n'){
+						i++;
+					}
+				}
+				else if(messaggio[i] == '\n'){
+					i++;
+				}
 				if(messaggio[i] != 0){
 					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
 					break;
@@ -894,8 +914,19 @@ void eseguiComandoBT(uint8_t *messaggio){
 				break;
 
 			case 0x66: //imposta tipo autenticazione APN: carattere '0'...'3'
+				
+				i = pwOff + 3;
+				if(messaggio[i] == '\r'){
+					i++;
+					if(messaggio[i] == '\n'){
+						i++;
+					}
+				}
+				else if(messaggio[i] == '\n'){
+					i++;
+				}
 				if(messaggio[pwOff+2] >= '0' && messaggio[pwOff+2] <= '3' &&
-				   messaggio[pwOff+3] == 0){
+				   messaggio[i] == 0){
 					apnAuthType = messaggio[pwOff+2] - '0';
 					data[0] = APN_AUTH_FRAM_MARKER;
 					data[1] = apnAuthType;
@@ -907,6 +938,7 @@ void eseguiComandoBT(uint8_t *messaggio){
 					saveArrayFram(&data[0],&addressFram[0],
 						2 + APN_AUTH_USER_SIZE + APN_AUTH_PASSWORD_SIZE);
 					HAL_UART_Transmit(&huart2,&OK[0],4,1000);
+					
 				}
 				else{
 					HAL_UART_Transmit(&huart2,&WP[0],4,1000);
