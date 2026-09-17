@@ -93,6 +93,7 @@ extern u8 attivaInternetFlag;
 extern u8 disattivaInternetFlag;
 extern u8 statoModulo;
 extern u8 statoInternet;
+extern u8 richiestaIpTest;
 extern u16 nIntrusioni;
 extern u8 lastNumber[20];
 extern u8 aggiungiNeutroStartDBflag2;
@@ -681,6 +682,25 @@ void eseguiComandoTest(uint8_t *messaggio){
 				copiaArray(&password[0],&data[0],16);
 				inviaDebug("password BT ripristinata\n");
 				HAL_UART_Transmit(&huart1,&OK[0],4,100);
+				break;
+			
+			/*
+			 * Diagnostica IP del contesto PDP. Il SIM7600 restituisce sulla
+			 * seriale di debug: +CGPADDR: 1,"<indirizzo IP>".
+			 */
+			case 0xae:
+				if(statoInternet != 3){
+					inviaDebug("[IP] connessione dati non attiva\n");
+				}
+				else if(statoModulo != 0){
+					inviaDebug("[IP] modem occupato, riprovare\n");
+				}
+				else{
+					richiestaIpTest = 1;
+					statoModulo++;
+					inviaDebug("[IP] richiesta indirizzo PDP\n");
+					invia4G("AT+CGPADDR=1\r");
+				}
 				break;
 			
 			case 0xa5:

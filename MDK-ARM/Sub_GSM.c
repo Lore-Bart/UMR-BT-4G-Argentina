@@ -44,6 +44,8 @@ u8 segnaleGSM = 0;
 
 //stato del modulo
 u8 statoModulo = 0;
+/* Richiesta diagnostica AT+CGPADDR avviata dalla seriale di debug. */
+u8 richiestaIpTest = 0;
 extern u8 timerModuloESC;
 
 //numeri
@@ -361,6 +363,22 @@ void risposteGSM(uint8_t *messaggio){
 	 * generici del modem. Gli URC non correlati continuano invece sotto.
 	 */
 	if(internetSetupHandleResponse(messaggio) != 0){
+		return;
+	}
+
+	/* Il comando di test dell'IP usa il normale arbitro del modem: alla
+	 * risposta del SIM7600 lo liberiamo, senza interferire con SMS o HTTP. */
+	if(richiestaIpTest != 0 &&
+		(cercaStringa(&messaggio[0], (u8*)"CGPADDR:", 8, &pointer) == 1 ||
+		 cercaStringa(&messaggio[0], (u8*)"ERROR", 5, &pointer) == 1)){
+		if(cercaStringa(&messaggio[0], (u8*)"ERROR", 5, &pointer) == 1){
+			inviaDebug("[IP] lettura indirizzo PDP fallita\n");
+		}
+		richiestaIpTest = 0;
+		if(statoModulo > 0){
+			statoModulo--;
+			inviaDebug("statoModulo--\n");
+		}
 		return;
 	}
 	
